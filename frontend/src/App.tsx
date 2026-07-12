@@ -27,8 +27,15 @@ function AppContent() {
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim() && roomId.length === 4) {
-      joinRoom(roomId.trim().toUpperCase(), name.trim());
+
+    const trimmedName = name.trim();
+    const targetedRoomId = roomId.trim().toUpperCase();
+
+    if (trimmedName && targetedRoomId.length === 4) {
+      console.log(
+        `Emitting join request for room: ${targetedRoomId} as player: ${trimmedName}`,
+      );
+      joinRoom(targetedRoomId, trimmedName);
     }
   };
 
