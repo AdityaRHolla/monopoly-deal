@@ -18,8 +18,7 @@ const io = new Server(server, {
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
-      /\.github\.io$/, // Allows your future GitHub Pages URL automatically
-      /vercel\.app$/, // Pre-authorizes Vercel fallback links
+      "https://monopoly-deal-phantom29-a.vercel.app/",
     ],
     methods: ["GET", "POST"],
   },
