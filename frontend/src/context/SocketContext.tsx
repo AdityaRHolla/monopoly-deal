@@ -28,7 +28,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // PASTE YOUR ACTUAL LIVE RENDER URL IN THE STRING BELOW:
     const PRODUCTION_BACKEND_URL =
-      "https://https://monopoly-deal-server-rxoj.onrender.com";
+      "https://monopoly-deal-server-rxoj.onrender.com";
 
     // Dynamically uses localhost if testing on your machine, or the Render URL for live gameplay
     const connectionUrl =
