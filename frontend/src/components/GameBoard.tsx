@@ -336,6 +336,7 @@ export const GameBoard: React.FC = () => {
               propertySets={me?.propertySets || {}}
               iOweMoney={iOweMoney}
               onPayDebt={handlePayDebt}
+              onReorganizeWildcard={handleReorganizeWildcard}
               isMyTurn={isMyTurn}
             />
           </div>

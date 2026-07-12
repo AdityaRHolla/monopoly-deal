@@ -27,7 +27,7 @@ export const CardTable: React.FC<CardTableProps> = ({
 
       {/* 👥 1. OPPONENT RIMS: Dynamic Seat Layout Distribution */}
       <div className="flex justify-around items-start w-full px-4 -mt-2">
-        {opponents.map((opp, idx) => {
+        {opponents.map((opp) => {
           const isOppTurn = activePlayer?.id === opp.id;
           return (
             <div
