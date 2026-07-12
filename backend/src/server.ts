@@ -18,7 +18,7 @@ const io = new Server(server, {
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
-      "https://monopoly-deal-phantom29-a.vercel.app",
+      "https://monopoly-deal-roan.vercel.app",
     ],
     methods: ["GET", "POST"],
   },
