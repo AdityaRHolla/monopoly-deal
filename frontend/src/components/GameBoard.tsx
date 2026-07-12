@@ -25,6 +25,40 @@ export const GameBoard: React.FC = () => {
   // Active Payment extraction hooks
   const paymentState = gameState.activePayment;
   const iOweMoney = paymentState?.pendingPayers.includes(myId || "") || false;
+  // Fetch active counter stack tracking parameters from room metadata
+  const counterStack = gameState.activeCounterStack;
+  const isVetoTargetMe = counterStack?.currentVetoPlayerId === myId;
+
+  // Targeting sub-states for complex action plays
+  const [activeStealCardId, setActiveStealCardId] = useState<string | null>(
+    null,
+  ); // Holds the Sly/Forced action card ID
+  const [forcedDealMyOfferId, setForcedDealMyOfferId] = useState<string | null>(
+    null,
+  ); // Holds your offered property ID
+
+  const handleReorganizeWildcard = (
+    cardId: string,
+    fromColor: string,
+    toColor: string,
+  ) => {
+    socket.emit("reorganize_wildcard", {
+      roomId: gameState.roomId,
+      cardId,
+      fromColor,
+      toColor,
+    });
+  };
+
+  // React to an action card: Play a Just Say No from your hand
+  const handlePlayJustSayNo = (cardId: string) => {
+    socket.emit("play_just_say_no", { roomId: gameState.roomId, cardId });
+  };
+
+  // Accept the action card effect: Click pass to clear the block loop
+  const handleAcceptActionEffect = () => {
+    socket.emit("accept_action_effect", { roomId: gameState.roomId });
+  };
 
   const handleBankMoney = (cardId: string) => {
     socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
@@ -99,6 +133,101 @@ export const GameBoard: React.FC = () => {
           </div>
         )}
 
+        {/* 🛡️ REACTIVE COUNTER LAYER: JUST SAY NO TRANSACTION STACK */}
+        {counterStack && (
+          <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 select-none">
+            <div className="w-full max-w-md p-6 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl relative text-center">
+              <span className="inline-block px-3 py-1 bg-red-950/40 border border-red-900/60 text-red-400 text-[10px] font-black tracking-widest uppercase rounded-full animate-pulse">
+                Instant Counter Stack Active
+              </span>
+
+              <h3 className="text-lg font-black text-slate-100 uppercase mt-4 tracking-wide">
+                {counterStack.originalCard.name} Played!
+              </h3>
+
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
+                An opponent is deploying an action card effect. The table is
+                frozen waiting for reactions.
+              </p>
+
+              {/* 🛠️ Dynamic Action Buttons Panel depending on if it's your turn to veto */}
+              {isVetoTargetMe ? (
+                <div className="mt-6 space-y-3">
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                    <p className="text-xs font-bold text-slate-300">
+                      Do you want to block this action?
+                    </p>
+
+                    {/* Filter hand tray to expose any playable Just Say No cards instantly */}
+                    <div className="flex gap-2 justify-center mt-3 overflow-x-auto py-1">
+                      {me?.hand
+                        .filter(
+                          (c) =>
+                            c.type === "action" &&
+                            (c as any).actionType === "just_say_no",
+                        )
+                        .map((card) => (
+                          <button
+                            key={card.id}
+                            onClick={() => handlePlayJustSayNo(card.id)}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+                          >
+                            💥 Use Just Say No
+                          </button>
+                        ))}
+                      {me?.hand.filter(
+                        (c) =>
+                          c.type === "action" &&
+                          (c as any).actionType === "just_say_no",
+                      ).length === 0 && (
+                        <span className="text-[10px] font-bold text-slate-600 italic">
+                          You do not hold a Just Say No card in your hand
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleAcceptActionEffect}
+                    className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-[0.98]"
+                  >
+                    🤝 Accept Effect (Pass)
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-6 py-4 bg-slate-950 border border-slate-800/60 rounded-xl text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  ⏳ Waiting on player response...
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 🎯 ATTACK TARGETING SUB-STATE NAVIGATION BANNER */}
+        {activeStealCardId && (
+          <div className="w-full max-w-5xl mx-auto my-2 p-3 bg-blue-950/90 border border-blue-500 rounded-2xl flex items-center justify-between text-xs font-bold text-blue-200">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-blue-400 animate-ping" />
+              <p>
+                {!forcedDealMyOfferId &&
+                me?.hand.find((c) => c.id === activeStealCardId)?.name ===
+                  "Forced Deal"
+                  ? "👉 STEP 1: Click one of YOUR loose properties below to offer as a trade..."
+                  : "👉 STEP 2: Now look at an opponent's panel above and click their loose property to steal!"}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setActiveStealCardId(null);
+                setForcedDealMyOfferId(null);
+              }}
+              className="px-3 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-[10px] font-black uppercase text-slate-400 tracking-wider cursor-pointer"
+            >
+              Cancel Steal
+            </button>
+          </div>
+        )}
+
         {/* 🎰 THE MAIN ELLIPSE CARD TABLE CANVAS EMBED */}
         <CardTable
           gameState={gameState}
@@ -121,6 +250,7 @@ export const GameBoard: React.FC = () => {
             <PlayerProperties
               propertySets={me?.propertySets || {}}
               iOweMoney={iOweMoney}
+              onReorganizeWildcard={handleReorganizeWildcard}
               onPayDebt={handlePayDebt}
             />
           </div>
@@ -158,11 +288,29 @@ export const GameBoard: React.FC = () => {
 
               let actionFn: (() => void) | undefined = undefined;
               let label = "";
+              const isSlyDeal =
+                card.type === "action" &&
+                (card as any).actionType === "sly_deal";
+              const isForcedDeal =
+                card.type === "action" &&
+                (card as any).actionType === "forced_deal";
 
               if (isMyTurn && gameState.actionsLeft > 0 && !paymentState) {
                 if (isPassGo) {
                   actionFn = () => handlePlayPassGo(card.id);
                   label = "Pass Go";
+                } else if (isSlyDeal) {
+                  actionFn = () => {
+                    setActiveStealCardId(card.id);
+                    setForcedDealMyOfferId(null); // Clear any old cache states
+                  };
+                  label = "Sly Deal";
+                } else if (isForcedDeal) {
+                  actionFn = () => {
+                    setActiveStealCardId(card.id);
+                    setForcedDealMyOfferId(null);
+                  };
+                  label = "Forced Deal";
                 } else if (isTargetedAction) {
                   actionFn = () => {
                     if ((card as any).actionType === "birthday") {

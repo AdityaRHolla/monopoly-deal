@@ -64,6 +64,14 @@ export interface PaymentState {
   pendingPayers: string[]; // List of player IDs who still need to pay
 }
 
+export interface CounterStackState {
+  originalCard: Card; // The Action/Rent card that was thrown down
+  playedBy: string; // Player ID who initiated the move
+  targetPlayerId?: string; // Explicit target opponent ID (if applicable)
+  payload: any; // Cache event variables (targetCardId, chosenColor, etc.)
+  currentVetoPlayerId: string; // The player who currently has the right to counter or pass
+}
+
 export interface GameRoom {
   roomId: string;
   status: "waiting" | "playing" | "ended";
@@ -75,4 +83,5 @@ export interface GameRoom {
   players: Player[];
   activePayment?: PaymentState;
   doubleRentActive?: boolean;
+  activeCounterStack?: CounterStackState;
 }
