@@ -58,13 +58,20 @@ export interface Player {
   propertySets: { [color: string]: PropertySet };
 }
 
+export interface PaymentState {
+  owedTo: string; // Player ID who played the action card
+  amountOwed: number; // Total Millions demanded
+  pendingPayers: string[]; // List of player IDs who still need to pay
+}
+
 export interface GameRoom {
   roomId: string;
   status: "waiting" | "playing" | "ended";
   hostId: string;
-  turn: number; // Index of the current player in the array
-  actionsLeft: number; // Track actions: max 3 per turn
+  turn: number;
+  actionsLeft: number;
   deck: Card[];
   discardPile: Card[];
   players: Player[];
+  activePayment?: PaymentState; // Add this line here
 }

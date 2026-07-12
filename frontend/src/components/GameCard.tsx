@@ -42,7 +42,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   }
 
   return (
-    <div className="flex-shrink-0 w-32 h-48 bg-slate-800 border border-slate-700 rounded-xl p-2 flex flex-col justify-between shadow-lg hover:-translate-y-2 hover:shadow-2xl hover:border-slate-500 transition-all duration-300 group">
+    <div className="shrink-0 w-32 h-48 bg-slate-800 border border-slate-700 rounded-xl p-2 flex flex-col justify-between shadow-lg hover:-translate-y-2 hover:shadow-2xl hover:border-slate-500 transition-all duration-300 group">
       {/* Dynamic Header Banner */}
       <div
         className={`px-2 py-1.5 rounded-lg border text-center relative ${bannerStyle}`}

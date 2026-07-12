@@ -58,7 +58,7 @@ export const OpponentPlate: React.FC<OpponentPlateProps> = ({
       </div>
 
       {/* Mini Color Strip of Played Properties */}
-      <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex flex-wrap gap-1 min-h-[16px]">
+      <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex flex-wrap gap-1 min-h-4">
         {Object.entries(opponent.propertySets).map(([color, set]) => {
           if (set.cards.length === 0) return null;
 

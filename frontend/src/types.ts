@@ -58,6 +58,12 @@ export interface Player {
   propertySets: { [color: string]: PropertySet };
 }
 
+export interface PaymentState {
+  owedTo: string; // Player ID who played the action card
+  amountOwed: number; // Total Millions demanded
+  pendingPayers: string[]; // List of player IDs who still need to pay
+}
+
 export interface GameRoom {
   roomId: string;
   status: "waiting" | "playing" | "ended";
@@ -67,4 +73,5 @@ export interface GameRoom {
   deck: Card[];
   discardPile: Card[];
   players: Player[];
+  activePayment?: PaymentState;
 }

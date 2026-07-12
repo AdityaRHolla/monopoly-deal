@@ -330,6 +330,184 @@ io.on("connection", (socket: Socket) => {
     },
   );
 
+  socket.on(
+    "play_targeted_action",
+    ({
+      roomId,
+      cardId,
+      targetPlayerId,
+    }: {
+      roomId: string;
+      cardId: string;
+      targetPlayerId?: string;
+    }) => {
+      const upperRoomId = roomId.toUpperCase();
+      const room = rooms.get(upperRoomId);
+
+      if (!room || room.status !== "playing" || room.activePayment) return;
+
+      const currentPlayer = room.players[room.turn];
+      if (currentPlayer.id !== socket.id || room.actionsLeft <= 0) return;
+
+      const cardIndex = currentPlayer.hand.findIndex((c) => c.id === cardId);
+      if (cardIndex === -1) return;
+
+      const card = currentPlayer.hand[cardIndex];
+      if (card.type !== "action") return;
+
+      const actionType = (card as any).actionType;
+      let amountToCollect = 0;
+      let payersList: string[] = [];
+
+      // Rule Setup: Differentiate Debt Collector (5M) vs Birthday (2M)
+      if (actionType === "debt_collector") {
+        if (!targetPlayerId) {
+          socket.emit("error_message", { message: "Select a target player." });
+          return;
+        }
+        amountToCollect = 5; // Fixed rule value: 5M
+        payersList = [targetPlayerId];
+      } else if (actionType === "birthday") {
+        amountToCollect = 2; // Fixed rule value: 2M
+        payersList = room.players
+          .filter((p) => p.id !== socket.id)
+          .map((p) => p.id);
+      } else {
+        return;
+      }
+
+      // Filter out any target who is completely broke (No money AND no properties)
+      // If a target has assets, they must stay in the pendingPayers list
+      const activePayers = payersList.filter((playerId) => {
+        const p = room.players.find((player) => player.id === playerId);
+        if (!p) return false;
+        const hasMoney = p.bank.length > 0;
+        const hasProperties = Object.values(p.propertySets).some(
+          (set) => set.cards.length > 0,
+        );
+        return hasMoney || hasProperties;
+      });
+
+      // If anyone has assets to pay, create the payment request cycle state
+      if (activePayers.length > 0) {
+        room.activePayment = {
+          owedTo: socket.id,
+          amountOwed: amountToCollect,
+          pendingPayers: activePayers,
+        };
+      }
+
+      // Burn card from hand and spend 1 action counter points pool
+      currentPlayer.hand.splice(cardIndex, 1);
+      room.discardPile.push(card);
+      room.actionsLeft -= 1;
+
+      io.to(upperRoomId).emit("room_updated", room);
+      console.log(`Payment state activated: Demanded ${amountToCollect}M`);
+    },
+  );
+
+  // HANDLER: PAY DEBT WITH ASSET FROM TABLE
+  socket.on(
+    "pay_debt_with_card",
+    ({
+      roomId,
+      cardId,
+      cardSource,
+    }: {
+      roomId: string;
+      cardId: string;
+      cardSource: "bank" | "property";
+    }) => {
+      const upperRoomId = roomId.toUpperCase();
+      const room = rooms.get(upperRoomId);
+
+      // 1. Verify active payment state loop is active
+      if (!room || !room.activePayment) return;
+
+      const payment = room.activePayment;
+      // Ensure the user calling this event is actually the person who owes money
+      if (!payment.pendingPayers.includes(socket.id)) return;
+
+      const payer = room.players.find((p) => p.id === socket.id);
+      const collector = room.players.find((p) => p.id === payment.owedTo);
+      if (!payer || !collector) return;
+
+      let cardToTransfer: any = null;
+
+      // 2. Extract card from Payer's table board assets
+      if (cardSource === "bank") {
+        const idx = payer.bank.findIndex((c) => c.id === cardId);
+        if (idx !== -1) {
+          cardToTransfer = payer.bank.splice(idx, 1)[0];
+        }
+      } else if (cardSource === "property") {
+        // Scan all property sets to locate the targeted card ID
+        for (const color of Object.keys(payer.propertySets)) {
+          const idx = payer.propertySets[color].cards.findIndex(
+            (c) => c.id === cardId,
+          );
+          if (idx !== -1) {
+            cardToTransfer = payer.propertySets[color].cards.splice(idx, 1)[0];
+            // Clean up the column if it's empty
+            if (payer.propertySets[color].cards.length === 0) {
+              delete payer.propertySets[color];
+            }
+            break;
+          }
+        }
+      }
+
+      if (!cardToTransfer) return;
+
+      // 3. Deliver card asset to the Collector based on type definitions
+      if (
+        cardToTransfer.type === "property" ||
+        cardToTransfer.type === "wildcard"
+      ) {
+        const targetColor =
+          cardToTransfer.color || cardToTransfer.colorsAvailable[0];
+        if (!collector.propertySets[targetColor]) {
+          collector.propertySets[targetColor] = {
+            cards: [],
+            isComplete: false,
+          };
+        }
+        collector.propertySets[targetColor].cards.push(cardToTransfer);
+      } else {
+        // Banknotes, Action cards, or Rent cards paid as money go directly into collector's bank vault
+        collector.bank.push(cardToTransfer);
+      }
+
+      // 4. Update debt balance math (No change is given in Monopoly Deal rules)
+      payment.amountOwed -= cardToTransfer.value;
+
+      // Check if this player has fully satisfied their individual debt obligation
+      // or if they ran completely out of cards on table (Bankruptcy protection safety clause)
+      const hasMoney = payer.bank.length > 0;
+      const hasProperties = Object.values(payer.propertySets).some(
+        (set) => set.cards.length > 0,
+      );
+      const isBroke = !hasMoney && !hasProperties;
+
+      if (payment.amountOwed <= 0 || isBroke) {
+        payment.pendingPayers = payment.pendingPayers.filter(
+          (id) => id !== socket.id,
+        );
+      }
+
+      // 5. Clean up payment state once all obligations are fully processed
+      if (payment.pendingPayers.length === 0) {
+        delete room.activePayment;
+      }
+
+      io.to(upperRoomId).emit("room_updated", room);
+      console.log(
+        `${payer.name} paid a card to ${collector.name}. Remaining debt state updated.`,
+      );
+    },
+  );
+
   socket.on("disconnect", () => {
     for (const [roomId, room] of rooms.entries()) {
       const playerIndex = room.players.findIndex((p) => p.id === socket.id);

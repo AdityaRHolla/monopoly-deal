@@ -24,7 +24,7 @@ export const Lobby: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-slate-950 text-slate-100 font-sans">
       <div className="w-full max-w-md p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl relative overflow-hidden">
         {/* Decorative Background Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent blur-sm" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-linear-to-r from-transparent via-red-500 to-transparent blur-sm" />
 
         {/* Header Branding */}
         <div className="text-center mb-6">
