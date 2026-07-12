@@ -26,11 +26,23 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    // Connects to your backend node server port
-    const socketInstance = io("http://localhost:4000");
+    // PASTE YOUR ACTUAL LIVE RENDER URL IN THE STRING BELOW:
+    const PRODUCTION_BACKEND_URL =
+      "https://YOUR_RENDER_WEB_SERVICE_://onrender.com";
+
+    // Dynamically uses localhost if testing on your machine, or the Render URL for live gameplay
+    const connectionUrl =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1"
+        ? "http://localhost:4000"
+        : PRODUCTION_BACKEND_URL;
+
+    const socketInstance = io(connectionUrl, {
+      transports: ["websocket", "polling"],
+    });
+
     setSocket(socketInstance);
 
-    // Listens for room updates from the backend
     socketInstance.on("room_created", (room: GameRoom) => {
       setGameState(room);
       setError("");
