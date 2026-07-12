@@ -74,4 +74,5 @@ export interface GameRoom {
   discardPile: Card[];
   players: Player[];
   activePayment?: PaymentState;
+  doubleRentActive?: boolean;
 }

@@ -5,6 +5,11 @@ import cors from "cors";
 import dotenv from "dotenv";
 import type { GameRoom, Player } from "./types.ts";
 import { createDeck, shuffleDeck } from "./deck.js";
+import { registerActionCardHandlers } from "./actions/actionHandlers.js";
+import { registerRentCardHandlers } from "./actions/rentHandlers.js";
+import { checkForWinCondition } from "./utils/winChecker.js";
+import { registerCounterCardHandlers } from "./actions/counterHandlers.js";
+import { registerPropertyCardHandlers } from "./actions/propertyHandlers.js";
 
 dotenv.config();
 
@@ -507,6 +512,11 @@ io.on("connection", (socket: Socket) => {
       );
     },
   );
+
+  registerActionCardHandlers(io, socket, rooms);
+  registerRentCardHandlers(io, socket, rooms);
+  registerCounterCardHandlers(io, socket, rooms);
+  registerPropertyCardHandlers(io, socket, rooms);
 
   socket.on("disconnect", () => {
     for (const [roomId, room] of rooms.entries()) {

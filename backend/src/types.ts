@@ -14,8 +14,9 @@ export interface PropertyCard extends BaseCard {
 
 export interface WildcardCard extends BaseCard {
   type: "wildcard";
-  colorsAvailable: string[];
-  currentColor: string;
+  colorsAvailable: string[]; // Standard has 2 colors. The Multi-color has ["darkblue", "green", "yellow", "red", "orange", "pink", "lightblue", "brown", "railroad", "utility"]
+  currentColor: string; // Whichever color the player chooses to map it to right now
+  isCompleteWild?: boolean; // True for the 0M value complete wild card
 }
 
 export interface ActionCard extends BaseCard {
@@ -64,6 +65,14 @@ export interface PaymentState {
   pendingPayers: string[]; // List of player IDs who still need to pay
 }
 
+export interface CounterStackState {
+  originalCard: Card; // The Action/Rent card that was thrown down
+  playedBy: string; // Player ID who initiated the move
+  targetPlayerId?: string; // Explicit target opponent ID (if applicable)
+  payload: any; // Cache event variables (targetCardId, chosenColor, etc.)
+  currentVetoPlayerId: string; // The player who currently has the right to counter or pass
+}
+
 export interface GameRoom {
   roomId: string;
   status: "waiting" | "playing" | "ended";
@@ -74,4 +83,6 @@ export interface GameRoom {
   discardPile: Card[];
   players: Player[];
   activePayment?: PaymentState; // Add this line here
+  doubleRentActive?: boolean;
+  activeCounterStack?: CounterStackState;
 }
