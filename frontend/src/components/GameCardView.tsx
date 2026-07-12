@@ -44,8 +44,18 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
     colorStyle = "from-indigo-700 to-purple-900 border-indigo-400";
   }
 
+  const handleDragStart = (e: React.DragEvent) => {
+    // Inject the unique card ID into the transfer buffer
+    e.dataTransfer.setData("text/plain", card.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
   return (
-    <div className="relative group perspective-1000 w-24 h-36 sm:w-28 sm:h-40 shrink-0">
+    <div
+      draggable={!disabled}
+      onDragStart={handleDragStart}
+      className="relative group perspective-1000 w-24 h-36 sm:w-28 sm:h-40 shrink-0"
+    >
       {/* 🚀 SMOOTH 1.2x HOVER-ZOOM CARD CORE CANVAS */}
       <div
         className={`w-full h-full rounded-xl border bg-linear-to-br p-2 flex flex-col justify-between shadow-lg 

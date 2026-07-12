@@ -37,6 +37,65 @@ export const GameBoard: React.FC = () => {
     null,
   ); // Holds your offered property ID
 
+  const handSize = me?.hand.length || 0;
+  const mustDiscard = isMyTurn && gameState.actionsLeft <= 0 && handSize > 7;
+
+  // Standard action emitter pipelines
+  const handleProcessCardDrop = (
+    cardId: string,
+    targetZone: "bank" | "property" | "discard",
+  ) => {
+    // Condition check: If the player must discard, force drop to act as a discard regardless of zone
+    if (mustDiscard || targetZone === "discard") {
+      socket.emit("discard_card", { roomId: gameState.roomId, cardId });
+      return;
+    }
+
+    const card = me?.hand.find((c) => c.id === cardId);
+    if (!card) return;
+
+    if (targetZone === "bank" && card.value > 0) {
+      socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
+    } else if (
+      targetZone === "property" &&
+      (card.type === "property" || card.type === "wildcard")
+    ) {
+      socket.emit("play_property_card", { roomId: gameState.roomId, cardId });
+    } else if (
+      card.type === "action" &&
+      (card as any).actionType === "pass_go"
+    ) {
+      socket.emit("play_pass_go", { roomId: gameState.roomId, cardId });
+    } else if (
+      card.type === "action" &&
+      ["debt_collector", "birthday"].includes((card as any).actionType)
+    ) {
+      if ((card as any).actionType === "birthday") {
+        socket.emit("play_targeted_action", {
+          roomId: gameState.roomId,
+          cardId,
+        });
+      } else {
+        setTargetModalCardId(card.id);
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Crucial: unlocks drop behaviors in browsers
+  };
+
+  const handleDropOnZone = (
+    e: React.DragEvent,
+    zone: "bank" | "property" | "discard",
+  ) => {
+    e.preventDefault();
+    const cardId = e.dataTransfer.getData("text/plain");
+    if (cardId) {
+      handleProcessCardDrop(cardId, zone);
+    }
+  };
+
   const handleReorganizeWildcard = (
     cardId: string,
     fromColor: string,
@@ -238,20 +297,46 @@ export const GameBoard: React.FC = () => {
         />
 
         {/* 🗺️ PLAYER BOARD MATRIX LAYOUT (VAULT & COLUMNS ROW) */}
+        {mustDiscard && (
+          <div
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDropOnZone(e, "discard")}
+            className="fixed inset-x-4 top-20 z-40 p-8 border-4 border-dashed border-red-500 bg-red-950/80 rounded-2xl text-center animate-pulse"
+          >
+            <p className="text-sm font-black uppercase tracking-widest text-red-200">
+              🚨 Hand Overflow Error: You hold {handSize} cards!
+            </p>
+            <p className="text-xs font-bold text-red-400 mt-1">
+              Drag and drop excess cards directly into this box to discard down
+              to 7 before ending your turn.
+            </p>
+          </div>
+        )}
+
+        {/* COMPONENT MOUNT WITH ATTACHED DROP EVENT LISTENERS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-4 max-w-5xl w-full mx-auto">
-          <div className="md:col-span-1">
+          <div
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDropOnZone(e, "bank")}
+            className="md:col-span-1 rounded-3xl transition-all duration-200 hover:ring-2 hover:ring-emerald-500/40"
+          >
             <PlayerVault
               bankCards={me?.bank || []}
               iOweMoney={iOweMoney}
               onPayDebt={handlePayDebt}
             />
           </div>
-          <div className="md:col-span-2">
+
+          <div
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDropOnZone(e, "property")}
+            className="md:col-span-2 rounded-3xl transition-all duration-200 hover:ring-2 hover:ring-blue-500/40"
+          >
             <PlayerProperties
               propertySets={me?.propertySets || {}}
               iOweMoney={iOweMoney}
-              onReorganizeWildcard={handleReorganizeWildcard}
               onPayDebt={handlePayDebt}
+              isMyTurn={isMyTurn}
             />
           </div>
         </div>

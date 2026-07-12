@@ -168,7 +168,7 @@ io.on("connection", (socket: Socket) => {
       status: "waiting",
       hostId: socket.id,
       turn: 0,
-      actionsLeft: 0,
+      actionsLeft: 3,
       deck: [],
       discardPile: [],
       players: [
@@ -264,6 +264,7 @@ io.on("connection", (socket: Socket) => {
     room.discardPile = [];
     room.status = "playing";
     room.turn = 0; // First player's turn index
+    room.actionsLeft = 3;
 
     // Broadcast the running game board state to everyone in the room
     io.to(upperRoomId).emit("room_updated", room);
@@ -509,6 +510,40 @@ io.on("connection", (socket: Socket) => {
       io.to(upperRoomId).emit("room_updated", room);
       console.log(
         `${payer.name} paid a card to ${collector.name}. Remaining debt state updated.`,
+      );
+    },
+  );
+
+  // HANDLER: DISCARD EXCESS CARDS FROM HAND WHEN OVER 7
+  socket.on(
+    "discard_card",
+    ({ roomId, cardId }: { roomId: string; cardId: string }) => {
+      const upperRoomId = roomId.toUpperCase();
+      const room = rooms.get(upperRoomId);
+
+      if (!room || room.status !== "playing") return;
+
+      const currentPlayer = room.players[room.turn];
+      if (currentPlayer.id !== socket.id) return;
+
+      // Rule Validation: Only allow discarding if hand size exceeds the strict limit of 7
+      if (currentPlayer.hand.length <= 7) {
+        socket.emit("error_message", {
+          message: "You only need to discard if you have more than 7 cards!",
+        });
+        return;
+      }
+
+      const cardIdx = currentPlayer.hand.findIndex((c) => c.id === cardId);
+      if (cardIdx === -1) return;
+
+      // Extract from hand and dump straight onto the public discard pile
+      const [discardedCard] = currentPlayer.hand.splice(cardIdx, 1);
+      room.discardPile.push(discardedCard);
+
+      io.to(upperRoomId).emit("room_updated", room);
+      console.log(
+        `🗑️ Discard: ${currentPlayer.name} dropped excess card ${discardedCard.name}`,
       );
     },
   );
