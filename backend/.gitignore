@@ -1,0 +1,5 @@
+# Ignore compiled javascript directory output
+dist/
+
+# Ignore local environment override configs
+.env
