@@ -1,12 +1,10 @@
 import React, { useState } from "react";
 import { useGame } from "../context/SocketContext";
 import { CardTable } from "./CardTable";
-import { PlayerVault } from "./PlayerVault";
-import { PlayerProperties } from "./PlayerProperties";
 import { GameCardView } from "./GameCardView";
 import { TargetModal } from "./TargetModal";
 import { PaymentBanner } from "./PaymentBanner";
-import { TargetingBanner } from "./TargetingBanner"; // Assuming name match
+import { TargetingBanner } from "./TargetingBanner";
 import { OrientationLock } from "./OrientationLock";
 import { ArrowRight } from "lucide-react";
 
@@ -15,8 +13,6 @@ export const GameBoard: React.FC = () => {
   const [targetModalCardId, setTargetModalCardId] = useState<string | null>(
     null,
   );
-
-  // Targeting sub-states for complex action plays
   const [activeStealCardId, setActiveStealCardId] = useState<string | null>(
     null,
   );
@@ -37,20 +33,37 @@ export const GameBoard: React.FC = () => {
   const handSize = me?.hand.length || 0;
   const mustDiscard = isMyTurn && gameState.actionsLeft <= 0 && handSize > 7;
 
+  const handleBankMoney = (cardId: string) => {
+    socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
+  };
+
+  const handlePlayProperty = (cardId: string) => {
+    socket.emit("play_property_card", { roomId: gameState.roomId, cardId });
+  };
+
+  const handlePlayPassGo = (cardId: string) => {
+    socket.emit("play_pass_go", { roomId: gameState.roomId, cardId });
+  };
+
+  const handleExecuteTargetedAction = (targetPlayerId: string) => {
+    if (targetModalCardId) {
+      socket.emit("play_targeted_action", {
+        roomId: gameState.roomId,
+        cardId: targetModalCardId,
+        targetPlayerId,
+      });
+      setTargetModalCardId(null);
+    }
+  };
+
   const handleProcessCardDrop = (
     cardId: string,
-    targetZone: "bank" | "property" | "discard",
+    targetZone: "bank" | "property" | "table",
   ) => {
     const card = me?.hand.find((c) => c.id === cardId);
     if (!card) return;
 
     if (mustDiscard) {
-      if (targetZone === "bank") {
-        socket.emit("error_message", {
-          message: "You cannot discard cards into your Bank vault!",
-        });
-        return;
-      }
       socket.emit("discard_card", { roomId: gameState.roomId, cardId });
       return;
     }
@@ -58,13 +71,12 @@ export const GameBoard: React.FC = () => {
     if (targetZone === "bank" && card.value > 0) {
       socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
     } else if (
-      targetZone === "property" &&
+      (targetZone === "property" || targetZone === "table") &&
       (card.type === "property" || card.type === "wildcard")
     ) {
       socket.emit("play_property_card", { roomId: gameState.roomId, cardId });
     } else if (card.type === "action") {
       const actionType = (card as any).actionType;
-
       if (actionType === "pass_go") {
         socket.emit("play_pass_go", { roomId: gameState.roomId, cardId });
       } else if (actionType === "birthday") {
@@ -87,22 +99,9 @@ export const GameBoard: React.FC = () => {
     e.preventDefault();
   };
 
-  // ⚡ RESTORED BASE ACTION EMITTERS
-  const handleBankMoney = (cardId: string) => {
-    socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
-  };
-
-  const handlePlayProperty = (cardId: string) => {
-    socket.emit("play_property_card", { roomId: gameState.roomId, cardId });
-  };
-
-  const handlePlayPassGo = (cardId: string) => {
-    socket.emit("play_pass_go", { roomId: gameState.roomId, cardId });
-  };
-
   const handleDropOnZone = (
     e: React.DragEvent,
-    zone: "bank" | "property" | "discard",
+    zone: "bank" | "property" | "table",
   ) => {
     e.preventDefault();
     const cardId = e.dataTransfer.getData("text/plain");
@@ -117,27 +116,6 @@ export const GameBoard: React.FC = () => {
       cardId,
       cardSource: source,
     });
-  };
-
-  const handleExecuteTargetedAction = (targetPlayerId: string) => {
-    if (targetModalCardId) {
-      socket.emit("play_targeted_action", {
-        roomId: gameState.roomId,
-        cardId: targetModalCardId,
-        targetPlayerId,
-      });
-      setTargetModalCardId(null);
-    }
-  };
-
-  const handleSelectMyOfferProperty = (cardId: string) => {
-    if (activeStealCardId) {
-      const card = me?.hand.find((c) => c.id === activeStealCardId);
-      if (card && (card as any).actionType === "forced_deal") {
-        setForcedDealMyOfferId(cardId);
-        console.log(`Forced Deal offer selected: ${cardId}`);
-      }
-    }
   };
 
   const handleReorganizeWildcard = (
@@ -159,28 +137,10 @@ export const GameBoard: React.FC = () => {
 
   return (
     <OrientationLock>
-      <div className="flex flex-col h-screen max-h-screen bg-slate-950 text-slate-100 p-2 sm:p-4 select-none font-sans relative overflow-hidden">
-        {/* 📢 PLUGGED MODULAR PAYMENT WARNING BANNER */}
+      {/* 🎰 UNIFIED FULL SCREEN MAP STRUCTURE */}
+      <div className="flex flex-col h-screen max-h-screen bg-slate-950 text-slate-100 p-2 overflow-hidden select-none font-sans relative">
         <PaymentBanner paymentState={paymentState} iOweMoney={iOweMoney} />
 
-        {/* 🗑️ OVERFLOW DISCARD ZONE MODAL */}
-        {mustDiscard && (
-          <div
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDropOnZone(e, "discard")}
-            className="fixed inset-x-4 top-16 z-40 p-4 border-2 border-dashed border-red-500 bg-red-950/90 rounded-xl text-center"
-          >
-            <p className="text-xs font-black uppercase text-red-200">
-              🚨 Hand Overflow: {handSize} cards!
-            </p>
-            <p className="text-[10px] font-bold text-red-400 mt-0.5">
-              Drag excess cards onto the green property board to discard down to
-              7.
-            </p>
-          </div>
-        )}
-
-        {/* 🎯 PLUGGED MODULAR ATTACK SELECTOR TARGETING PROMPT LAYER */}
         <TargetingBanner
           activeStealCardId={activeStealCardId}
           forcedDealMyOfferId={forcedDealMyOfferId}
@@ -191,110 +151,43 @@ export const GameBoard: React.FC = () => {
           }}
         />
 
-        {/* 🎰 SHRUNK CENTRAL FELT MAP */}
-        <div className="flex-1 min-h-0 max-h-[42vh] flex items-center justify-center">
+        {/* 🎴 STADIUM SCALE GAME FELT TABLE AREA (Occupies 75-80% height canvas) */}
+        <div
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDropOnZone(e, "table")}
+          className="flex-4 min-h-0 flex items-center justify-center p-1 sm:p-2 rounded-[50px] overflow-hidden"
+        >
           <CardTable
             gameState={gameState}
             activePlayer={activePlayer}
             isMyTurn={isMyTurn}
             hasActivePayment={!!paymentState}
             opponents={opponents}
+            me={me} // Crucial link line to draw your cards on the lower edge
+            iOweMoney={iOweMoney}
+            onPayDebt={handlePayDebt}
+            onReorganizeWildcard={handleReorganizeWildcard}
             isTargetingMode={!!activeStealCardId}
-            onSelectTargetCard={(cardId) => {
-              // 🔍 1. Identify which opponent owns this clicked property card ID
-              const targetedOpponent = opponents.find((o) =>
-                Object.values(o.propertySets).some((set) =>
-                  set.cards.some((c) => c.id === cardId),
-                ),
-              );
-
-              if (!targetedOpponent) return;
-
-              // 📡 2. Emit the correct socket action depending on which card you are playing
-              const activeCard = me?.hand.find(
-                (c) => c.id === activeStealCardId,
-              );
-              const actionType = activeCard
-                ? (activeCard as any).actionType
-                : "";
-
-              if (actionType === "sly_deal") {
-                socket.emit("play_sly_deal", {
-                  roomId: gameState.roomId,
-                  actionCardId: activeStealCardId,
-                  targetPlayerId: targetedOpponent.id,
-                  targetCardId: cardId,
-                });
-                setActiveStealCardId(null);
-              } else if (actionType === "forced_deal") {
-                if (!forcedDealMyOfferId) {
-                  socket.emit("error_message", {
-                    message:
-                      "Please select one of your own properties to trade first!",
-                  });
-                  return;
-                }
-                socket.emit("play_forced_deal", {
-                  roomId: gameState.roomId,
-                  actionCardId: activeStealCardId,
-                  targetPlayerId: targetedOpponent.id,
-                  targetCardId: cardId,
-                  myCardId: forcedDealMyOfferId,
-                });
-                setActiveStealCardId(null);
-                setForcedDealMyOfferId(null);
-              }
-            }}
           />
         </div>
 
-        {/* 🏠 TABLE ASSETS ROW DISPLAY */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 my-2 max-w-5xl w-full mx-auto min-h-0 overflow-hidden">
-          <div
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDropOnZone(e, "bank")}
-            className="md:col-span-1 rounded-2xl transition-all duration-200"
-          >
-            <PlayerVault
-              bankCards={me?.bank || []}
-              iOweMoney={iOweMoney}
-              onPayDebt={handlePayDebt}
-            />
-          </div>
-          <div
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDropOnZone(e, "property")}
-            className="md:col-span-2 rounded-2xl transition-all duration-200"
-          >
-            <PlayerProperties
-              propertySets={me?.propertySets || {}}
-              iOweMoney={iOweMoney}
-              onPayDebt={handlePayDebt}
-              onReorganizeWildcard={handleReorganizeWildcard}
-              isMyTurn={isMyTurn}
-              onSelectProperty={handleSelectMyOfferProperty}
-              selectedOfferId={forcedDealMyOfferId}
-            />
-          </div>
-        </div>
-
-        {/* 🎴 PLAYER HAND TRAY SLIDER */}
-        <div className="w-full max-w-5xl mx-auto bg-slate-900/90 rounded-xl p-3 border border-slate-800 shadow-2xl mt-auto">
-          <div className="flex items-center justify-between mb-2 border-b border-slate-800/60 pb-1">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">
-              Your Active Hand Tray ({handSize} / 7)
+        {/* 🗃️ PLAYER HAND DRAWER (Tucked at the rock bottom edge) */}
+        <div className="flex-1 max-h-[22vh] w-full max-w-5xl mx-auto bg-slate-900/90 rounded-2xl border border-slate-800 p-2 flex flex-col justify-between shadow-2xl z-20">
+          <div className="flex items-center justify-between border-b border-slate-800/60 pb-1 mb-1">
+            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest font-mono">
+              Your Hand Tray ({handSize} / 7)
             </span>
             {isMyTurn && !paymentState && (
               <button
                 onClick={handleEndTurn}
-                className="flex items-center gap-1 px-3 py-0.5 bg-blue-600 hover:bg-blue-500 text-[9px] font-black uppercase tracking-wider rounded-full shadow-lg transition-transform active:scale-95 cursor-pointer"
+                className="flex items-center gap-1 px-3 py-0.5 bg-blue-600 hover:bg-blue-500 text-[9px] font-black uppercase rounded-full shadow-md cursor-pointer transition-transform active:scale-95"
               >
                 <span>End Turn</span> <ArrowRight size={10} />
               </button>
             )}
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-1 pt-0.5 items-end min-h-36.25">
+          <div className="flex gap-2 overflow-x-auto pb-1 items-end min-h-0 flex-1 justify-center scrollbar-none">
             {me?.hand.map((card) => {
               const isPassGo =
                 card.type === "action" &&
@@ -321,17 +214,11 @@ export const GameBoard: React.FC = () => {
                   actionFn = () => handlePlayPassGo(card.id);
                   label = "Pass Go";
                 } else if (isSlyDeal) {
-                  actionFn = () => {
-                    setActiveStealCardId(card.id);
-                    setForcedDealMyOfferId(null);
-                  };
-                  label = "Sly Deal";
+                  actionFn = () => setActiveStealCardId(card.id);
+                  label = "Sly";
                 } else if (isForcedDeal) {
-                  actionFn = () => {
-                    setActiveStealCardId(card.id);
-                    setForcedDealMyOfferId(null);
-                  };
-                  label = "Forced Deal";
+                  actionFn = () => setActiveStealCardId(card.id);
+                  label = "Forced";
                 } else if (isTargetedAction) {
                   actionFn = () => {
                     if ((card as any).actionType === "birthday") {
@@ -344,15 +231,13 @@ export const GameBoard: React.FC = () => {
                     }
                   };
                   label =
-                    (card as any).actionType === "birthday"
-                      ? "Birthday"
-                      : "Collect 5M";
+                    (card as any).actionType === "birthday" ? "BDay" : "5M";
                 } else if (isProperty) {
                   actionFn = () => handlePlayProperty(card.id);
-                  label = "Lay Prop";
+                  label = "Lay";
                 } else if (card.value > 0) {
                   actionFn = () => handleBankMoney(card.id);
-                  label = "Bank It";
+                  label = "Bank";
                 }
               }
 
