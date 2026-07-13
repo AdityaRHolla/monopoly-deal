@@ -191,6 +191,7 @@ export const GameBoard: React.FC = () => {
             isTargetingMode={!!activeStealCardId}
             doubleRentActive={gameState.doubleRentActive}
             onSelectTargetCard={(cardId) => {
+              // 🔍 1. Locate which opponent owns this clicked property tile
               const targetedOpponent = opponents.find((o) =>
                 Object.values(o.propertySets).some((set) =>
                   set.cards.some((c) => c.id === cardId),
@@ -199,6 +200,17 @@ export const GameBoard: React.FC = () => {
 
               if (!targetedOpponent) return;
 
+              // 🔍 2. Extract which specific color group column was targeted
+              let targetColor = "";
+              for (const [color, set] of Object.entries(
+                targetedOpponent.propertySets,
+              )) {
+                if (set.cards.some((c) => c.id === cardId)) {
+                  targetColor = color;
+                  break;
+                }
+              }
+
               const activeCard = me?.hand.find(
                 (c) => c.id === activeStealCardId,
               );
@@ -206,7 +218,16 @@ export const GameBoard: React.FC = () => {
                 ? (activeCard as any).actionType
                 : "";
 
-              if (actionType === "sly_deal") {
+              // 📡 3. Route to respective backend handlers
+              if (actionType === "deal_breaker") {
+                socket.emit("play_deal_breaker", {
+                  roomId: gameState.roomId,
+                  actionCardId: activeStealCardId,
+                  targetPlayerId: targetedOpponent.id,
+                  targetColor: targetColor, // Pass the color group instead of a single card ID
+                });
+                setActiveStealCardId(null);
+              } else if (actionType === "sly_deal") {
                 socket.emit("play_sly_deal", {
                   roomId: gameState.roomId,
                   actionCardId: activeStealCardId,
@@ -217,8 +238,7 @@ export const GameBoard: React.FC = () => {
               } else if (actionType === "forced_deal") {
                 if (!forcedDealMyOfferId) {
                   socket.emit("error_message", {
-                    message:
-                      "Please select one of your own properties to trade first!",
+                    message: "Select your offer trade card first!",
                   });
                   return;
                 }
@@ -274,6 +294,10 @@ export const GameBoard: React.FC = () => {
                 card.type === "action" &&
                 (card as any).actionType === "double_rent";
               const isRentCard = card.type === "rent";
+              const isDealBreaker =
+                card.type === "action" &&
+                (card as any).actionType === "deal_breaker";
+
               let actionFn: (() => void) | undefined = undefined;
               let label = "";
 
@@ -287,6 +311,12 @@ export const GameBoard: React.FC = () => {
                 } else if (isForcedDeal) {
                   actionFn = () => setActiveStealCardId(card.id);
                   label = "Forced";
+                } else if (isDealBreaker) {
+                  actionFn = () => {
+                    setActiveStealCardId(card.id); // Triggers targeting mode!
+                    setForcedDealMyOfferId(null); // Deal Breaker doesn't require an offer trade card
+                  };
+                  label = "Deal Breaker";
                 } else if (isDoubleRent) {
                   actionFn = () => {
                     socket.emit("play_double_rent", {
