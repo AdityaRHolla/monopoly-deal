@@ -168,6 +168,7 @@ export const GameBoard: React.FC = () => {
             onPayDebt={handlePayDebt}
             onReorganizeWildcard={handleReorganizeWildcard}
             isTargetingMode={!!activeStealCardId}
+            doubleRentActive={gameState.doubleRentActive}
           />
         </div>
 
@@ -205,6 +206,9 @@ export const GameBoard: React.FC = () => {
                 (card as any).actionType === "forced_deal";
               const isProperty =
                 card.type === "property" || card.type === "wildcard";
+              const isDoubleRent =
+                card.type === "action" &&
+                (card as any).actionType === "double_rent";
 
               let actionFn: (() => void) | undefined = undefined;
               let label = "";
@@ -219,6 +223,14 @@ export const GameBoard: React.FC = () => {
                 } else if (isForcedDeal) {
                   actionFn = () => setActiveStealCardId(card.id);
                   label = "Forced";
+                } else if (isDoubleRent) {
+                  actionFn = () => {
+                    socket.emit("play_double_rent", {
+                      roomId: gameState.roomId,
+                      actionCardId: card.id,
+                    });
+                  };
+                  label = "Double Rent";
                 } else if (isTargetedAction) {
                   actionFn = () => {
                     if ((card as any).actionType === "birthday") {

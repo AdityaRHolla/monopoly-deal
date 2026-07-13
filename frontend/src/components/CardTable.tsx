@@ -21,6 +21,7 @@ interface CardTableProps {
   ) => void;
   isTargetingMode?: boolean;
   onSelectTargetCard?: (cardId: string) => void;
+  doubleRentActive?: boolean;
 }
 
 export const CardTable: React.FC<CardTableProps> = ({
@@ -35,6 +36,7 @@ export const CardTable: React.FC<CardTableProps> = ({
   onReorganizeWildcard,
   isTargetingMode = false,
   onSelectTargetCard,
+  doubleRentActive,
 }) => {
   const [activeWildcardId, setActiveWildcardId] = useState<string | null>(null);
   const allGameColors = [
@@ -163,6 +165,11 @@ export const CardTable: React.FC<CardTableProps> = ({
               : activePlayer
                 ? `🧠 ${activePlayer.name}'s Move`
                 : ""}
+            {doubleRentActive && (
+              <div className="text-[7px] font-black tracking-widest text-red-400 bg-red-950/80 px-2 py-0.5 rounded-md border border-red-500/40 mt-0.5 animate-pulse uppercase">
+                💥 2X Rent Active
+              </div>
+            )}
           </p>
           {isMyTurn && !hasActivePayment && (
             <div className="text-[8px] font-black text-amber-400 uppercase tracking-wide bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-900 mt-0.5">
