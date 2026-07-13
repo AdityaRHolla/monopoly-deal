@@ -36,6 +36,13 @@ export const GameBoard: React.FC = () => {
   // Rent Card active tracking sub-states
   const [activeRentCardId, setActiveRentCardId] = useState<string | null>(null);
   const [rentColorsAvailable, setRentColorsAvailable] = useState<string[]>([]);
+  // Building active modifier tracking sub-states
+  const [activeBuildingCardId, setActiveBuildingCardId] = useState<
+    string | null
+  >(null);
+  const [activeBuildingType, setActiveBuildingType] = useState<
+    "house" | "hotel" | null
+  >(null);
 
   const handleBankMoney = (cardId: string) => {
     socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
@@ -190,6 +197,19 @@ export const GameBoard: React.FC = () => {
             onReorganizeWildcard={handleReorganizeWildcard}
             isTargetingMode={!!activeStealCardId}
             doubleRentActive={gameState.doubleRentActive}
+            activeBuildingCardId={activeBuildingCardId}
+            buildingType={activeBuildingType}
+            onBuildModifier={(targetColor) => {
+              if (activeBuildingCardId) {
+                socket.emit("play_building_modifier", {
+                  roomId: gameState.roomId,
+                  cardId: activeBuildingCardId,
+                  targetColor,
+                });
+                setActiveBuildingCardId(null);
+                setActiveBuildingType(null);
+              }
+            }}
             onSelectTargetCard={(cardId) => {
               // 🔍 1. Locate which opponent owns this clicked property tile
               const targetedOpponent = opponents.find((o) =>
@@ -297,6 +317,9 @@ export const GameBoard: React.FC = () => {
               const isDealBreaker =
                 card.type === "action" &&
                 (card as any).actionType === "deal_breaker";
+              const isBuildingModifier =
+                card.type === "action" &&
+                ["house", "hotel"].includes((card as any).actionType);
 
               let actionFn: (() => void) | undefined = undefined;
               let label = "";
@@ -367,6 +390,15 @@ export const GameBoard: React.FC = () => {
                 } else if (isProperty) {
                   actionFn = () => handlePlayProperty(card.id);
                   label = "Lay";
+                } else if (isBuildingModifier) {
+                  actionFn = () => {
+                    setActiveBuildingCardId(card.id);
+                    setActiveBuildingType((card as any).actionType);
+                  };
+                  label =
+                    (card as any).actionType === "house"
+                      ? "Add House"
+                      : "Add Hotel";
                 } else if (card.value > 0) {
                   actionFn = () => handleBankMoney(card.id);
                   label = "Bank";

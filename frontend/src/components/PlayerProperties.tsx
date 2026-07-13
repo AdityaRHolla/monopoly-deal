@@ -15,6 +15,9 @@ interface PlayerPropertiesProps {
   isMyTurn?: boolean;
   onSelectProperty?: (cardId: string) => void;
   selectedOfferId?: string | null;
+  activeBuildingCardId?: string | null;
+  buildingType?: "house" | "hotel" | null;
+  onBuildModifier?: (targetColor: string) => void;
 }
 
 // Official Monopoly Deal Rent Scale Matrix Dictionary
@@ -39,6 +42,9 @@ export const PlayerProperties: React.FC<PlayerPropertiesProps> = ({
   isMyTurn = false,
   onSelectProperty,
   selectedOfferId,
+  activeBuildingCardId,
+  buildingType,
+  onBuildModifier,
 }) => {
   const [activeWildcardId, setActiveWildcardId] = useState<string | null>(null);
   const allGameColors = [
@@ -100,11 +106,47 @@ export const PlayerProperties: React.FC<PlayerPropertiesProps> = ({
           const targetNeeded = getTargetSetCount(color);
           const activeRent = calculateLiveRent(color, totalCards, set.cards);
 
+          const isSetComplete = set.isComplete;
+          const isEligibleForBuilding =
+            isSetComplete &&
+            color !== "railroad" &&
+            color !== "utility" &&
+            !!activeBuildingCardId;
+
+          const hasHouse = set.cards.some(
+            (c: any) => c.type === "action" && c.actionType === "house",
+          );
+          const hasHotel = set.cards.some(
+            (c: any) => c.type === "action" && c.actionType === "hotel",
+          );
+
+          let showBuildOverlay = false;
+          if (isEligibleForBuilding && buildingType === "house" && !hasHouse)
+            showBuildOverlay = true;
+          if (
+            isEligibleForBuilding &&
+            buildingType === "hotel" &&
+            hasHouse &&
+            !hasHotel
+          )
+            showBuildOverlay = true;
+
           return (
             <div
               key={color}
               className="flex flex-col gap-1.5 bg-slate-900/50 border border-slate-800/80 p-2 rounded-xl shadow-inner min-w-30 max-w-35"
             >
+              {showBuildOverlay && onBuildModifier && (
+                <button
+                  onClick={() => onBuildModifier(color)}
+                  className="absolute inset-0 z-30 bg-amber-600/90 border-2 border-amber-400 rounded-xl flex flex-col items-center justify-center text-slate-950 font-black text-[10px] uppercase tracking-wider shadow-2xl scale-102 transition-transform cursor-pointer animate-pulse"
+                >
+                  <span>🏗️ Upgrade</span>
+                  <span className="text-[7px] tracking-normal font-mono opacity-80 mt-0.5">
+                    Add {buildingType}
+                  </span>
+                </button>
+              )}
               {/* 📊 DYNAMIC RENT OVERVIEW SCHEME BANNER */}
               <div className="text-center p-1 rounded bg-slate-950 border border-slate-800 flex flex-col gap-0.5">
                 <span className="text-[8px] font-black uppercase text-slate-200 tracking-wider truncate">

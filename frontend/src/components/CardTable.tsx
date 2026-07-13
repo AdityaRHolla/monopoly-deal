@@ -22,6 +22,9 @@ interface CardTableProps {
   isTargetingMode?: boolean;
   onSelectTargetCard?: (cardId: string) => void;
   doubleRentActive?: boolean;
+  activeBuildingCardId?: string | null;
+  buildingType?: "house" | "hotel" | null;
+  onBuildModifier?: (targetColor: string) => void;
 }
 
 export const CardTable: React.FC<CardTableProps> = ({
@@ -37,6 +40,9 @@ export const CardTable: React.FC<CardTableProps> = ({
   isTargetingMode = false,
   onSelectTargetCard,
   doubleRentActive,
+  activeBuildingCardId,
+  buildingType,
+  onBuildModifier,
 }) => {
   const [activeWildcardId, setActiveWildcardId] = useState<string | null>(null);
   const allGameColors = [
@@ -182,11 +188,39 @@ export const CardTable: React.FC<CardTableProps> = ({
         <div className="flex gap-2 overflow-x-auto max-w-112.5 pb-1 items-end">
           {Object.entries(me?.propertySets || {}).map(([color, set]) => {
             if (set.cards.length === 0) return null;
+            const hasHouse = set.cards.some(
+              (c: any) => c.type === "action" && c.actionType === "house",
+            );
+            const hasHotel = set.cards.some(
+              (c: any) => c.type === "action" && c.actionType === "hotel",
+            );
+            const isEligible =
+              set.isComplete &&
+              color !== "railroad" &&
+              color !== "utility" &&
+              !!activeBuildingCardId;
+            let showBuildOverlay = false;
+            if (isEligible && buildingType === "house" && !hasHouse)
+              showBuildOverlay = true;
+            if (isEligible && buildingType === "hotel" && hasHouse && !hasHotel)
+              showBuildOverlay = true;
+
             return (
               <div
                 key={color}
                 className="flex flex-col gap-1 bg-slate-950/60 p-1.5 rounded-lg border border-slate-800 max-w-21.25 relative"
               >
+                {showBuildOverlay && onBuildModifier && (
+                  <button
+                    onClick={() => onBuildModifier(color)}
+                    className="absolute inset-0 z-30 bg-amber-500/90 border border-amber-400 rounded-lg flex flex-col items-center justify-center text-slate-950 font-black text-[8px] uppercase tracking-wider shadow-2xl animate-pulse cursor-pointer"
+                  >
+                    <span>🏗️ Build</span>
+                    <span className="text-[6px] font-mono opacity-80 mt-0.5">
+                      {buildingType}
+                    </span>
+                  </button>
+                )}
                 {/* 🔌 PLUGGED MODULAR POKER CHIPS DISPLAY ROW LINK */}
                 <PokerChips cardCount={set.cards.length} color={color} />
 
