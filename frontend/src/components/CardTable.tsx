@@ -25,6 +25,7 @@ interface CardTableProps {
   activeBuildingCardId?: string | null;
   buildingType?: "house" | "hotel" | null;
   onBuildModifier?: (targetColor: string) => void;
+  onDropOnBankVault?: () => void;
 }
 
 export const CardTable: React.FC<CardTableProps> = ({
@@ -43,6 +44,7 @@ export const CardTable: React.FC<CardTableProps> = ({
   activeBuildingCardId,
   buildingType,
   onBuildModifier,
+  onDropOnBankVault,
 }) => {
   const [activeWildcardId, setActiveWildcardId] = useState<string | null>(null);
   const allGameColors = [
@@ -225,7 +227,7 @@ export const CardTable: React.FC<CardTableProps> = ({
                 {/* 🔌 PLUGGED MODULAR POKER CHIPS DISPLAY ROW LINK */}
                 <PokerChips cardCount={set.cards.length} color={color} />
 
-                <div className="flex flex-col gap-0.5 max-h-20 overflow-y-auto">
+                <div className="flex flex-col gap-0.5 max-h-20 overflow-visible">
                   {set.cards.map((c, idx) => (
                     <div
                       key={idx}

@@ -101,34 +101,95 @@ export const GameBoard: React.FC = () => {
     const card = me?.hand.find((c) => c.id === cardId);
     if (!card) return;
 
+    // 🚨 1. EXCESS HAND OVERFLOW DISCARD RE-ROUTING TRAP
     if (mustDiscard) {
+      if (targetZone === "bank") {
+        socket.emit("error_message", {
+          message: "You cannot discard cards into your Bank vault!",
+        });
+        return;
+      }
       socket.emit("discard_card", { roomId: gameState.roomId, cardId });
       return;
     }
 
-    if (targetZone === "bank" && card.value > 0) {
-      socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
-    } else if (
-      (targetZone === "property" || targetZone === "table") &&
-      (card.type === "property" || card.type === "wildcard")
-    ) {
-      socket.emit("play_property_card", { roomId: gameState.roomId, cardId });
-    } else if (card.type === "action") {
-      const actionType = (card as any).actionType;
-      if (actionType === "pass_go") {
-        socket.emit("play_pass_go", { roomId: gameState.roomId, cardId });
-      } else if (actionType === "birthday") {
-        socket.emit("play_targeted_action", {
-          roomId: gameState.roomId,
-          cardId,
+    // 🚨 2. GESTURE ZONE INTERCEPTION ENGINE
+
+    // ZONE A: Dropped into the Bank Vault compartment
+    if (targetZone === "bank") {
+      if (card.value > 0) {
+        socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
+      } else {
+        socket.emit("error_message", {
+          message: "This card has no monetary bank value value!",
         });
-      } else if (actionType === "debt_collector") {
-        setTargetModalCardId(card.id);
-      } else if (
-        ["sly_deal", "forced_deal", "deal_breaker"].includes(actionType)
-      ) {
-        setActiveStealCardId(card.id);
-        setForcedDealMyOfferId(null);
+      }
+      return;
+    }
+
+    // ZONE B: Dropped directly onto the explicit Property slots row
+    if (targetZone === "property") {
+      if (card.type === "property" || card.type === "wildcard") {
+        socket.emit("play_property_card", { roomId: gameState.roomId, cardId });
+      } else {
+        socket.emit("error_message", {
+          message:
+            "Only properties or wildcards can be laid into your color sets!",
+        });
+      }
+      return;
+    }
+
+    // ZONE C: Dropped onto the main Table Felt map (Processes actions, properties, or rent)
+    if (targetZone === "table") {
+      if (card.type === "property" || card.type === "wildcard") {
+        // Safe fallback: allow laying property by dropping onto the open table too
+        socket.emit("play_property_card", { roomId: gameState.roomId, cardId });
+      } else if (card.type === "rent") {
+        // 🔥 CRITICAL GESTURE FIX: Intercept rent drops and open the selection prompt modal!
+        const colors = (card as any).colors || [];
+        const isWildRent = (card as any).isWildRent === true;
+
+        if (isWildRent) {
+          (window as any)._cachedRentColors = [
+            "darkblue",
+            "green",
+            "yellow",
+            "red",
+            "orange",
+            "pink",
+            "lightblue",
+            "brown",
+            "railroad",
+            "utility",
+          ];
+        } else {
+          (window as any)._cachedRentColors = colors;
+        }
+        setActiveRentCardId(card.id);
+      } else if (card.type === "action") {
+        const actionType = (card as any).actionType;
+
+        if (actionType === "pass_go") {
+          socket.emit("play_pass_go", { roomId: gameState.roomId, cardId });
+        } else if (actionType === "birthday") {
+          socket.emit("play_targeted_action", {
+            roomId: gameState.roomId,
+            cardId,
+          });
+        } else if (actionType === "debt_collector") {
+          setTargetModalCardId(card.id);
+        } else if (
+          ["sly_deal", "forced_deal", "deal_breaker"].includes(actionType)
+        ) {
+          setActiveStealCardId(card.id);
+          setForcedDealMyOfferId(null);
+        } else if (actionType === "double_rent") {
+          socket.emit("play_double_rent", {
+            roomId: gameState.roomId,
+            actionCardId: card.id,
+          });
+        }
       }
     }
   };
@@ -334,6 +395,9 @@ export const GameBoard: React.FC = () => {
                 setActiveBuildingType(null);
               }
             }}
+            onDropOnBankVault={() =>
+              socket.emit("play_money_card", { roomId: gameState.roomId })
+            }
             onSelectTargetCard={(cardId) => {
               // 🔍 1. Locate which opponent owns this clicked property tile
               const targetedOpponent = opponents.find((o) =>
@@ -515,7 +579,7 @@ export const GameBoard: React.FC = () => {
                       (me?.hand.find((c) => c.id === activeRentCardId) as any)
                         ?.colors || []
                     ) // Target 2 colors for Standard Rent
-                      .map((color:string) => {
+                      .map((color: string) => {
                         const ownsColor =
                           me?.propertySets[color] &&
                           me.propertySets[color].cards.length > 0;
