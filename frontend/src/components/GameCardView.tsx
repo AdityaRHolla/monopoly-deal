@@ -66,10 +66,10 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
     }
   }
 
-  const baseClasses = `rounded-xl border flex flex-col justify-between shadow-md transition-all duration-200 select-none ${
+  const baseClasses = `rounded-xl border flex flex-col justify-between shadow-md transition-all duration-300 ease-out select-none transform ${
     isCompact
-      ? "w-16 h-24 p-1 text-[8px] hover:scale-110 hover:z-20"
-      : "w-24 h-36 sm:w-28 sm:h-40 p-2 text-[10px] group-hover:-translate-y-4 group-hover:scale-125 group-hover:z-50 group-hover:shadow-2xl group-hover:border-white/40"
+      ? "w-14 h-20 p-1 text-[7px] hover:scale-110 hover:z-20"
+      : "w-20 h-30 sm:w-24 sm:h-36 p-1.5 sm:p-2 text-[9px] sm:text-[10px] origin-center hover:-translate-y-4 hover:scale-115 hover:z-50 hover:shadow-2xl hover:border-white/40"
   } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}`;
 
   // Inline styling for true split dual-color property wildcards

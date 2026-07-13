@@ -6,7 +6,7 @@ import { TargetModal } from "./TargetModal";
 import { PaymentBanner } from "./PaymentBanner";
 import { TargetingBanner } from "./TargetingBanner";
 import { OrientationLock } from "./OrientationLock";
-import { ArrowRight } from "lucide-react";
+// import { ArrowRight } from "lucide-react";
 
 export const GameBoard: React.FC = () => {
   const { gameState, socket } = useGame();
@@ -401,22 +401,23 @@ export const GameBoard: React.FC = () => {
         </div>
 
         {/* 🗃️ PLAYER HAND DRAWER (Tucked at the rock bottom edge) */}
-        <div className="flex-1 max-h-[22vh] w-full max-w-5xl mx-auto bg-slate-900/90 rounded-2xl border border-slate-800 p-2 flex flex-col justify-between shadow-2xl z-20">
-          <div className="flex items-center justify-between border-b border-slate-800/60 pb-1 mb-1">
+        <div className="w-full max-w-5xl mx-auto bg-slate-900/90 rounded-2xl border border-slate-800 p-3 flex flex-col justify-between shadow-2xl z-20 mt-auto">
+          <div className="flex items-center justify-between border-b border-slate-800/60 pb-1 mb-2">
             <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest font-mono">
               Your Hand Tray ({handSize} / 7)
             </span>
             {isMyTurn && !paymentState && (
               <button
                 onClick={handleEndTurn}
-                className="flex items-center gap-1 px-3 py-0.5 bg-blue-600 hover:bg-blue-500 text-[9px] font-black uppercase rounded-full shadow-md cursor-pointer transition-transform active:scale-95"
+                className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-[10px] font-black uppercase rounded-full shadow-md cursor-pointer transition-transform active:scale-95"
               >
-                <span>End Turn</span> <ArrowRight size={10} />
+                <span>End Turn</span>
               </button>
             )}
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-1 items-end min-h-0 flex-1 justify-center scrollbar-none">
+          {/* 💎 FIX: Removed restrictive max-h, added substantial pt-6 pb-2 padding to accommodate the hover-zoom space */}
+          <div className="flex gap-3 overflow-x-auto pt-6 pb-4 px-2 items-end justify-start sm:justify-center scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
             {me?.hand.map((card) => {
               const isPassGo =
                 card.type === "action" &&
@@ -434,16 +435,6 @@ export const GameBoard: React.FC = () => {
                 (card as any).actionType === "forced_deal";
               const isProperty =
                 card.type === "property" || card.type === "wildcard";
-              const isDoubleRent =
-                card.type === "action" &&
-                (card as any).actionType === "double_rent";
-              const isRentCard = card.type === "rent";
-              const isDealBreaker =
-                card.type === "action" &&
-                (card as any).actionType === "deal_breaker";
-              const isBuildingModifier =
-                card.type === "action" &&
-                ["house", "hotel"].includes((card as any).actionType);
 
               let actionFn: (() => void) | undefined = undefined;
               let label = "";
@@ -458,46 +449,6 @@ export const GameBoard: React.FC = () => {
                 } else if (isForcedDeal) {
                   actionFn = () => setActiveStealCardId(card.id);
                   label = "Forced";
-                } else if (isDealBreaker) {
-                  actionFn = () => {
-                    setActiveStealCardId(card.id); // Triggers targeting mode!
-                    setForcedDealMyOfferId(null); // Deal Breaker doesn't require an offer trade card
-                  };
-                  label = "Deal Breaker";
-                } else if (isDoubleRent) {
-                  actionFn = () => {
-                    socket.emit("play_double_rent", {
-                      roomId: gameState.roomId,
-                      actionCardId: card.id,
-                    });
-                  };
-                  label = "Double Rent";
-                } else if (isRentCard) {
-                  actionFn = () => {
-                    const colors = (card as any).colors || [];
-                    const isWildRent = (card as any).isWildRent === true;
-
-                    if (isWildRent) {
-                      // Wild Rent covers all 10 available board colors
-                      setRentColorsAvailable([
-                        "darkblue",
-                        "green",
-                        "yellow",
-                        "red",
-                        "orange",
-                        "pink",
-                        "lightblue",
-                        "brown",
-                        "railroad",
-                        "utility",
-                      ]);
-                    } else {
-                      // Standard Rent covers its 2 specific configured color options
-                      setRentColorsAvailable(colors);
-                    }
-                    setActiveRentCardId(card.id);
-                  };
-                  label = (card as any).isWildRent ? "Wild Rent" : "Rent";
                 } else if (isTargetedAction) {
                   actionFn = () => {
                     if ((card as any).actionType === "birthday") {
@@ -514,15 +465,6 @@ export const GameBoard: React.FC = () => {
                 } else if (isProperty) {
                   actionFn = () => handlePlayProperty(card.id);
                   label = "Lay";
-                } else if (isBuildingModifier) {
-                  actionFn = () => {
-                    setActiveBuildingCardId(card.id);
-                    setActiveBuildingType((card as any).actionType);
-                  };
-                  label =
-                    (card as any).actionType === "house"
-                      ? "Add House"
-                      : "Add Hotel";
                 } else if (card.value > 0) {
                   actionFn = () => handleBankMoney(card.id);
                   label = "Bank";
