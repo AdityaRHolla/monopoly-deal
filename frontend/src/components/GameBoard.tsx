@@ -163,12 +163,55 @@ export const GameBoard: React.FC = () => {
             isMyTurn={isMyTurn}
             hasActivePayment={!!paymentState}
             opponents={opponents}
-            me={me} // Crucial link line to draw your cards on the lower edge
+            me={me}
             iOweMoney={iOweMoney}
             onPayDebt={handlePayDebt}
             onReorganizeWildcard={handleReorganizeWildcard}
             isTargetingMode={!!activeStealCardId}
             doubleRentActive={gameState.doubleRentActive}
+            onSelectTargetCard={(cardId) => {
+              const targetedOpponent = opponents.find((o) =>
+                Object.values(o.propertySets).some((set) =>
+                  set.cards.some((c) => c.id === cardId),
+                ),
+              );
+
+              if (!targetedOpponent) return;
+
+              const activeCard = me?.hand.find(
+                (c) => c.id === activeStealCardId,
+              );
+              const actionType = activeCard
+                ? (activeCard as any).actionType
+                : "";
+
+              if (actionType === "sly_deal") {
+                socket.emit("play_sly_deal", {
+                  roomId: gameState.roomId,
+                  actionCardId: activeStealCardId,
+                  targetPlayerId: targetedOpponent.id,
+                  targetCardId: cardId,
+                });
+                setActiveStealCardId(null);
+              } else if (actionType === "forced_deal") {
+                if (!forcedDealMyOfferId) {
+                  socket.emit("error_message", {
+                    message:
+                      "Please select one of your own properties to trade first!",
+                  });
+                  return;
+                }
+                socket.emit("play_forced_deal", {
+                  roomId: gameState.roomId,
+                  actionCardId: activeStealCardId,
+                  targetPlayerId: targetedOpponent.id,
+                  targetCardId: cardId,
+                  myCardId: forcedDealMyOfferId,
+                });
+                setActiveStealCardId(null);
+                setForcedDealMyOfferId(null);
+              }
+            }}
           />
         </div>
 
