@@ -64,7 +64,8 @@ export const CardTable: React.FC<CardTableProps> = ({
   const rightOpp = opponents[2];
 
   return (
-    <div className="w-full max-w-5xl h-[68vh] bg-blue-600 rounded-[120px] border-8 border-slate-800 shadow-2xl relative p-4 flex flex-col justify-between items-center group overflow-hidden">
+    <div className="w-full max-w-5xl h-[44vh] sm:h-[55vh] bg-blue-600 rounded-[40px] sm:rounded-[100px] border-4 sm:border-8 border-slate-800 shadow-2xl relative p-2 sm:p-4 flex flex-col justify-between items-center group overflow-hidden">
+      {/* 🎰 Visual Felt Canvas Background Textures */}
       <div className="absolute inset-0 bg-linear-to-b from-blue-600 via-blue-500 to-blue-700 shadow-inner -z-10" />
 
       {/* ==================================================== */}
@@ -109,7 +110,7 @@ export const CardTable: React.FC<CardTableProps> = ({
       {/* ==================================================== */}
       {/* 🃏 DRAW & DISCARD CORE TRACKERS                      */}
       {/* ==================================================== */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-6 bg-slate-950/40 p-3 rounded-2xl border border-white/5 backdrop-blur-sm shadow-2xl">
+      <div className="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-4 sm:gap-6 bg-slate-950/40 p-2 sm:p-3 rounded-2xl border border-white/5 backdrop-blur-sm shadow-2xl">
         <div className="flex flex-col items-center gap-1">
           <div className="w-12 h-18 bg-linear-to-br from-red-600 to-red-950 border border-slate-200 rounded-lg flex items-center justify-center shadow-lg">
             <span className="text-[6px] font-black text-white/80 tracking-widest uppercase transform -rotate-12">

@@ -45,7 +45,7 @@ export const GameBoard: React.FC = () => {
 
   // Rent Card active tracking sub-states
   const [activeRentCardId, setActiveRentCardId] = useState<string | null>(null);
-  const [rentColorsAvailable, setRentColorsAvailable] = useState<string[]>([]);
+  // const [rentColorsAvailable, setRentColorsAvailable] = useState<string[]>([]);
   // Building active modifier tracking sub-states
   const [activeBuildingCardId, setActiveBuildingCardId] = useState<
     string | null
@@ -495,55 +495,69 @@ export const GameBoard: React.FC = () => {
                 Choose which property column to calculate rent values from:
               </p>
 
+              {/* 💎 FIX: Check active hand card attributes inline to extract the color arrays instead of reading dead state variables */}
               <div className="grid grid-cols-2 gap-2 mt-4 max-h-40 overflow-y-auto p-1">
-                {rentColorsAvailable.map((color) => {
-                  // Only enable the button if the player actually owns at least one card in that color group
-                  const ownsColor =
-                    me?.propertySets[color] &&
-                    me.propertySets[color].cards.length > 0;
-                  const activeCard = me?.hand.find(
-                    (c) => c.id === activeRentCardId,
-                  );
-                  const isWildRent = activeCard
-                    ? (activeCard as any).isWildRent === true
-                    : false;
+                {(me?.hand.find((c) => c.id === activeRentCardId) as any)
+                  ?.isWildRent
+                  ? [
+                      "darkblue",
+                      "green",
+                      "yellow",
+                      "red",
+                      "orange",
+                      "pink",
+                      "lightblue",
+                      "brown",
+                      "railroad",
+                      "utility",
+                    ] // All 10 colors for Wild Rent
+                  : (
+                      (me?.hand.find((c) => c.id === activeRentCardId) as any)
+                        ?.colors || []
+                    ) // Target 2 colors for Standard Rent
+                      .map((color:string) => {
+                        const ownsColor =
+                          me?.propertySets[color] &&
+                          me.propertySets[color].cards.length > 0;
+                        const activeCard = me?.hand.find(
+                          (c) => c.id === activeRentCardId,
+                        );
+                        const isWildRent = activeCard
+                          ? (activeCard as any).isWildRent === true
+                          : false;
 
-                  return (
-                    <button
-                      key={color}
-                      disabled={!ownsColor}
-                      onClick={() => {
-                        if (isWildRent) {
-                          // Multi-color wild rent needs an explicit single target player id.
-                          // To keep it simple, we open the target selection grid right after clicking the color!
-                          setTargetModalCardId(activeRentCardId);
-                          // Store chosen color inside window cache variable temporarily to read it on player selection
-                          (window as any)._cachedRentColor = color;
-                        } else {
-                          // Standard rent targets everyone on the table automatically
-                          socket.emit("play_rent_card", {
-                            roomId: gameState.roomId,
-                            actionCardId: activeRentCardId,
-                            chosenColor: color,
-                          });
-                        }
-                        setActiveRentCardId(null);
-                      }}
-                      className={`py-2 px-3 border rounded-xl text-[10px] font-black uppercase text-left transition-all truncate flex items-center justify-between ${
-                        ownsColor
-                          ? "bg-slate-950 border-slate-800 hover:border-emerald-500 text-slate-200 cursor-pointer active:scale-95"
-                          : "bg-slate-950/20 border-slate-900 text-slate-600 opacity-40 cursor-not-allowed"
-                      }`}
-                    >
-                      <span>{color}</span>
-                      {ownsColor && (
-                        <span className="text-[8px] bg-emerald-950 border border-emerald-900/60 text-emerald-400 px-1 rounded">
-                          Own
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                        return (
+                          <button
+                            key={color}
+                            disabled={!ownsColor}
+                            onClick={() => {
+                              if (isWildRent) {
+                                setTargetModalCardId(activeRentCardId);
+                                (window as any)._cachedRentColor = color;
+                              } else {
+                                socket.emit("play_rent_card", {
+                                  roomId: gameState.roomId,
+                                  actionCardId: activeRentCardId,
+                                  chosenColor: color,
+                                });
+                              }
+                              setActiveRentCardId(null);
+                            }}
+                            className={`py-2 px-3 border rounded-xl text-[10px] font-black uppercase text-left transition-all truncate flex items-center justify-between ${
+                              ownsColor
+                                ? "bg-slate-950 border-slate-800 hover:border-emerald-500 text-slate-200 cursor-pointer active:scale-95"
+                                : "bg-slate-950/20 border-slate-900 text-slate-600 opacity-40 cursor-not-allowed"
+                            }`}
+                          >
+                            <span>{color}</span>
+                            {ownsColor && (
+                              <span className="text-[8px] bg-emerald-950 border border-emerald-900/60 text-emerald-400 px-1 rounded">
+                                Own
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
               </div>
 
               <button
