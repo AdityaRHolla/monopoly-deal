@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useGame } from "../context/SocketContext";
 import { CardTable } from "./CardTable";
-import { GameCardView } from "./GameCardView";
+// import { GameCardView } from "./GameCardView";
 import { TargetModal } from "./TargetModal";
 import { PaymentBanner } from "./PaymentBanner";
 import { TargetingBanner } from "./TargetingBanner";
