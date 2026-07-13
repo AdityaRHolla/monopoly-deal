@@ -33,6 +33,10 @@ export const GameBoard: React.FC = () => {
   const handSize = me?.hand.length || 0;
   const mustDiscard = isMyTurn && gameState.actionsLeft <= 0 && handSize > 7;
 
+  // Rent Card active tracking sub-states
+  const [activeRentCardId, setActiveRentCardId] = useState<string | null>(null);
+  const [rentColorsAvailable, setRentColorsAvailable] = useState<string[]>([]);
+
   const handleBankMoney = (cardId: string) => {
     socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
   };
@@ -47,11 +51,28 @@ export const GameBoard: React.FC = () => {
 
   const handleExecuteTargetedAction = (targetPlayerId: string) => {
     if (targetModalCardId) {
-      socket.emit("play_targeted_action", {
-        roomId: gameState.roomId,
-        cardId: targetModalCardId,
-        targetPlayerId,
-      });
+      const activeCard = me?.hand.find((c) => c.id === targetModalCardId);
+      const isWildRent =
+        activeCard?.type === "rent" && (activeCard as any).isWildRent === true;
+
+      if (isWildRent) {
+        // Read the color chosen from the window cache parameter
+        const chosenColor = (window as any)._cachedRentColor || "";
+        socket.emit("play_rent_card", {
+          roomId: gameState.roomId,
+          actionCardId: targetModalCardId,
+          chosenColor,
+          targetPlayerId,
+        });
+        delete (window as any)._cachedRentColor; // Clean up cache
+      } else {
+        // Standard Debt Collector execution workflow route
+        socket.emit("play_targeted_action", {
+          roomId: gameState.roomId,
+          cardId: targetModalCardId,
+          targetPlayerId,
+        });
+      }
       setTargetModalCardId(null);
     }
   };
@@ -252,7 +273,7 @@ export const GameBoard: React.FC = () => {
               const isDoubleRent =
                 card.type === "action" &&
                 (card as any).actionType === "double_rent";
-
+              const isRentCard = card.type === "rent";
               let actionFn: (() => void) | undefined = undefined;
               let label = "";
 
@@ -274,6 +295,32 @@ export const GameBoard: React.FC = () => {
                     });
                   };
                   label = "Double Rent";
+                } else if (isRentCard) {
+                  actionFn = () => {
+                    const colors = (card as any).colors || [];
+                    const isWildRent = (card as any).isWildRent === true;
+
+                    if (isWildRent) {
+                      // Wild Rent covers all 10 available board colors
+                      setRentColorsAvailable([
+                        "darkblue",
+                        "green",
+                        "yellow",
+                        "red",
+                        "orange",
+                        "pink",
+                        "lightblue",
+                        "brown",
+                        "railroad",
+                        "utility",
+                      ]);
+                    } else {
+                      // Standard Rent covers its 2 specific configured color options
+                      setRentColorsAvailable(colors);
+                    }
+                    setActiveRentCardId(card.id);
+                  };
+                  label = (card as any).isWildRent ? "Wild Rent" : "Rent";
                 } else if (isTargetedAction) {
                   actionFn = () => {
                     if ((card as any).actionType === "birthday") {
@@ -310,6 +357,76 @@ export const GameBoard: React.FC = () => {
             })}
           </div>
         </div>
+        {activeRentCardId && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+            <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800 p-5 shadow-2xl text-center">
+              <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
+                💰 Select Rent Color
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Choose which property column to calculate rent values from:
+              </p>
+
+              <div className="grid grid-cols-2 gap-2 mt-4 max-h-40 overflow-y-auto p-1">
+                {rentColorsAvailable.map((color) => {
+                  // Only enable the button if the player actually owns at least one card in that color group
+                  const ownsColor =
+                    me?.propertySets[color] &&
+                    me.propertySets[color].cards.length > 0;
+                  const activeCard = me?.hand.find(
+                    (c) => c.id === activeRentCardId,
+                  );
+                  const isWildRent = activeCard
+                    ? (activeCard as any).isWildRent === true
+                    : false;
+
+                  return (
+                    <button
+                      key={color}
+                      disabled={!ownsColor}
+                      onClick={() => {
+                        if (isWildRent) {
+                          // Multi-color wild rent needs an explicit single target player id.
+                          // To keep it simple, we open the target selection grid right after clicking the color!
+                          setTargetModalCardId(activeRentCardId);
+                          // Store chosen color inside window cache variable temporarily to read it on player selection
+                          (window as any)._cachedRentColor = color;
+                        } else {
+                          // Standard rent targets everyone on the table automatically
+                          socket.emit("play_rent_card", {
+                            roomId: gameState.roomId,
+                            actionCardId: activeRentCardId,
+                            chosenColor: color,
+                          });
+                        }
+                        setActiveRentCardId(null);
+                      }}
+                      className={`py-2 px-3 border rounded-xl text-[10px] font-black uppercase text-left transition-all truncate flex items-center justify-between ${
+                        ownsColor
+                          ? "bg-slate-950 border-slate-800 hover:border-emerald-500 text-slate-200 cursor-pointer active:scale-95"
+                          : "bg-slate-950/20 border-slate-900 text-slate-600 opacity-40 cursor-not-allowed"
+                      }`}
+                    >
+                      <span>{color}</span>
+                      {ownsColor && (
+                        <span className="text-[8px] bg-emerald-950 border border-emerald-900/60 text-emerald-400 px-1 rounded">
+                          Own
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setActiveRentCardId(null)}
+                className="w-full mt-4 py-2 border border-dashed border-slate-800 hover:border-slate-700 text-[10px] font-black uppercase text-slate-400 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         <TargetModal
           isOpen={!!targetModalCardId}
