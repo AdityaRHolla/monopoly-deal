@@ -6,7 +6,10 @@ import { TargetModal } from "./TargetModal";
 import { PaymentBanner } from "./PaymentBanner";
 import { TargetingBanner } from "./TargetingBanner";
 import { OrientationLock } from "./OrientationLock";
-// import { ArrowRight } from "lucide-react";
+import { CounterStackModal } from "./CounterStackModal";
+import { RentSelectionModal } from "./RentSelectionModal";
+import { MatchResultsModal } from "./MatchResultsModal";
+import { PlayerHandDrawer } from "./PlayerHandDrawer";
 
 export const GameBoard: React.FC = () => {
   const { gameState, socket } = useGame();
@@ -239,73 +242,13 @@ export const GameBoard: React.FC = () => {
       {/* 🎰 UNIFIED FULL SCREEN MAP STRUCTURE */}
       <div className="flex flex-col h-screen max-h-screen bg-slate-950 text-slate-100 p-2 overflow-hidden select-none font-sans relative">
         <PaymentBanner paymentState={paymentState} iOweMoney={iOweMoney} />
-        {counterStack && (
-          <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-4 select-none">
-            <div className="w-full max-w-sm p-5 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl text-center animate-in fade-in zoom-in-95 duration-200">
-              <span className="inline-block px-2.5 py-0.5 bg-red-950 border border-red-500/40 text-red-400 text-[8px] font-black uppercase tracking-widest rounded-full animate-pulse">
-                Counter Stack Active
-              </span>
-
-              <h3 className="text-base font-black text-slate-100 uppercase mt-3 tracking-wide">
-                ⚡ {counterStack.originalCard.name}
-              </h3>
-
-              <p className="text-[10px] text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
-                An active card event loop is currently frozen on the felt table
-                waiting for quick player veto responses.
-              </p>
-
-              {isVetoTargetMe ? (
-                <div className="mt-5 space-y-2">
-                  <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-3">
-                    <p className="text-[10px] font-bold text-slate-300">
-                      Do you hold a response block card?
-                    </p>
-
-                    {/* Inline Filter Tray exposing matching Just Say No cards in hand */}
-                    <div className="flex gap-1.5 justify-center mt-2.5 overflow-x-auto py-0.5">
-                      {me?.hand
-                        .filter(
-                          (c) =>
-                            c.type === "action" &&
-                            (c as any).actionType === "just_say_no",
-                        )
-                        .map((card) => (
-                          <button
-                            key={card.id}
-                            onClick={() => handlePlayJustSayNo(card.id)}
-                            className="px-3 py-1 bg-red-600 hover:bg-red-500 border border-red-400/40 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-md transition-transform active:scale-95 cursor-pointer"
-                          >
-                            💥 JUST SAY NO
-                          </button>
-                        ))}
-                      {me?.hand.filter(
-                        (c) =>
-                          c.type === "action" &&
-                          (c as any).actionType === "just_say_no",
-                      ).length === 0 && (
-                        <span className="text-[9px] font-bold text-slate-600 italic py-1">
-                          No protective counter cards in hand tray
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleAcceptActionEffect}
-                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] cursor-pointer"
-                  >
-                    🤝 Accept Consequences (Pass)
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-5 py-3 bg-slate-950 border border-slate-800/60 rounded-xl text-[9px] font-black text-slate-500 uppercase tracking-widest animate-pulse">
-                  ⏳ Awaiting opponent reaction logs...
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <CounterStackModal
+          counterStack={counterStack}
+          isVetoTargetMe={isVetoTargetMe}
+          me={me}
+          handlePlayJustSayNo={handlePlayJustSayNo}
+          handleAcceptActionEffect={handleAcceptActionEffect}
+        />
         <TargetingBanner
           activeStealCardId={activeStealCardId}
           forcedDealMyOfferId={forcedDealMyOfferId}
@@ -316,53 +259,10 @@ export const GameBoard: React.FC = () => {
           }}
         />
 
-        {gameState.status === "ended" && (
-          <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-4 select-none animate-in fade-in duration-300">
-            <div className="w-full max-w-sm p-6 bg-linear-to-b from-slate-900 to-slate-950 border-2 border-amber-500 rounded-3xl shadow-2xl shadow-amber-950/40 text-center relative overflow-hidden">
-              {/* Decorative visual anchor lights layout background patterns */}
-              <div className="absolute -top-12 -left-12 w-24 h-24 bg-amber-500/10 rounded-full blur-xl animate-pulse" />
-              <div className="absolute -bottom-12 -right-12 w-24 h-24 bg-blue-500/10 rounded-full blur-xl animate-pulse" />
-
-              <span className="inline-block px-3 py-1 bg-amber-950 border border-amber-500/40 text-amber-400 text-[9px] font-black tracking-widest uppercase rounded-full">
-                👑 Match Results
-              </span>
-
-              <h2 className="text-2xl font-black bg-linear-to-r from-amber-200 via-yellow-400 to-amber-200 bg-clip-text text-transparent uppercase mt-4 tracking-wider animate-bounce">
-                Victory Declared!
-              </h2>
-
-              <p className="text-xs font-bold text-slate-300 mt-2 max-w-xs mx-auto leading-relaxed">
-                A strategic mastermind has compiled{" "}
-                <span className="text-amber-400 font-extrabold">
-                  3 completed property sets
-                </span>{" "}
-                and conquered the felt table!
-              </p>
-
-              {/* Displaying structural winner metadata details */}
-              <div className="mt-5 p-4 bg-slate-950 border border-slate-800 rounded-2xl">
-                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
-                  Room Champion:
-                </p>
-                <p className="text-xl font-black text-slate-100 uppercase tracking-wide mt-1">
-                  {gameState.players[gameState.turn]?.name ||
-                    "Anonymous Player"}
-                </p>
-              </div>
-
-              {/* Reset Router Trigger Anchor Action Button */}
-              <button
-                onClick={() => {
-                  // Hard refresh the client page state memory instantly to route cleanly to entry main menus
-                  window.location.reload();
-                }}
-                className="w-full mt-6 py-3 bg-linear-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-slate-950 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-950/40 transform active:scale-[0.98] cursor-pointer"
-              >
-                🚪 Exit to Main Menu
-              </button>
-            </div>
-          </div>
-        )}
+        <MatchResultsModal
+          status={gameState.status}
+          winnerName={gameState.players[gameState.turn]?.name}
+        />
 
         {/* 🎴 STADIUM SCALE GAME FELT TABLE AREA (Occupies 75-80% height canvas) */}
         <div
@@ -395,9 +295,19 @@ export const GameBoard: React.FC = () => {
                 setActiveBuildingType(null);
               }
             }}
-            onDropOnBankVault={() =>
-              socket.emit("play_money_card", { roomId: gameState.roomId })
+            onDropOnBankVault={(cardId) =>
+              handleProcessCardDrop(cardId, "bank")
             }
+            onDropOnCenterFelt={(cardId) =>
+              handleProcessCardDrop(cardId, "table")
+            }
+            onDropOnPropertySet={(cardId) => {
+              // Routes straight into your rules block logic for properties
+              handleProcessCardDrop(cardId, "property");
+
+              // Note: If you ever want to expand your layout engine to drop cards
+              // directly into specific columns, you can pass targetColor to the server here!
+            }}
             onSelectTargetCard={(cardId) => {
               // 🔍 1. Locate which opponent owns this clicked property tile
               const targetedOpponent = opponents.find((o) =>
@@ -465,174 +375,38 @@ export const GameBoard: React.FC = () => {
         </div>
 
         {/* 🗃️ PLAYER HAND DRAWER (Tucked at the rock bottom edge) */}
-        <div className="w-full max-w-5xl mx-auto bg-slate-900/90 rounded-2xl border border-slate-800 p-3 flex flex-col justify-between shadow-2xl z-20 mt-auto">
-          <div className="flex items-center justify-between border-b border-slate-800/60 pb-1 mb-2">
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest font-mono">
-              Your Hand Tray ({handSize} / 7)
-            </span>
-            {isMyTurn && !paymentState && (
-              <button
-                onClick={handleEndTurn}
-                className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-[10px] font-black uppercase rounded-full shadow-md cursor-pointer transition-transform active:scale-95"
-              >
-                <span>End Turn</span>
-              </button>
-            )}
-          </div>
-
-          {/* 💎 FIX: Removed restrictive max-h, added substantial pt-6 pb-2 padding to accommodate the hover-zoom space */}
-          <div className="flex gap-3 overflow-x-auto pt-6 pb-4 px-2 items-end justify-start sm:justify-center scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-            {me?.hand.map((card) => {
-              const isPassGo =
-                card.type === "action" &&
-                (card as any).actionType === "pass_go";
-              const isTargetedAction =
-                card.type === "action" &&
-                ["debt_collector", "birthday"].includes(
-                  (card as any).actionType,
-                );
-              const isSlyDeal =
-                card.type === "action" &&
-                (card as any).actionType === "sly_deal";
-              const isForcedDeal =
-                card.type === "action" &&
-                (card as any).actionType === "forced_deal";
-              const isProperty =
-                card.type === "property" || card.type === "wildcard";
-
-              let actionFn: (() => void) | undefined = undefined;
-              let label = "";
-
-              if (isMyTurn && gameState.actionsLeft > 0 && !paymentState) {
-                if (isPassGo) {
-                  actionFn = () => handlePlayPassGo(card.id);
-                  label = "Pass Go";
-                } else if (isSlyDeal) {
-                  actionFn = () => setActiveStealCardId(card.id);
-                  label = "Sly";
-                } else if (isForcedDeal) {
-                  actionFn = () => setActiveStealCardId(card.id);
-                  label = "Forced";
-                } else if (isTargetedAction) {
-                  actionFn = () => {
-                    if ((card as any).actionType === "birthday") {
-                      socket.emit("play_targeted_action", {
-                        roomId: gameState.roomId,
-                        cardId: card.id,
-                      });
-                    } else {
-                      setTargetModalCardId(card.id);
-                    }
-                  };
-                  label =
-                    (card as any).actionType === "birthday" ? "BDay" : "5M";
-                } else if (isProperty) {
-                  actionFn = () => handlePlayProperty(card.id);
-                  label = "Lay";
-                } else if (card.value > 0) {
-                  actionFn = () => handleBankMoney(card.id);
-                  label = "Bank";
-                }
-              }
-
-              return (
-                <GameCardView
-                  key={card.id}
-                  card={card}
-                  onAction={actionFn}
-                  actionLabel={label}
-                  disabled={
-                    !isMyTurn || gameState.actionsLeft <= 0 || !!paymentState
-                  }
-                />
-              );
-            })}
-          </div>
-        </div>
-        {activeRentCardId && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-            <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800 p-5 shadow-2xl text-center">
-              <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
-                💰 Select Rent Color
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Choose which property column to calculate rent values from:
-              </p>
-
-              {/* 💎 FIX: Check active hand card attributes inline to extract the color arrays instead of reading dead state variables */}
-              <div className="grid grid-cols-2 gap-2 mt-4 max-h-40 overflow-y-auto p-1">
-                {(me?.hand.find((c) => c.id === activeRentCardId) as any)
-                  ?.isWildRent
-                  ? [
-                      "darkblue",
-                      "green",
-                      "yellow",
-                      "red",
-                      "orange",
-                      "pink",
-                      "lightblue",
-                      "brown",
-                      "railroad",
-                      "utility",
-                    ] // All 10 colors for Wild Rent
-                  : (
-                      (me?.hand.find((c) => c.id === activeRentCardId) as any)
-                        ?.colors || []
-                    ) // Target 2 colors for Standard Rent
-                      .map((color: string) => {
-                        const ownsColor =
-                          me?.propertySets[color] &&
-                          me.propertySets[color].cards.length > 0;
-                        const activeCard = me?.hand.find(
-                          (c) => c.id === activeRentCardId,
-                        );
-                        const isWildRent = activeCard
-                          ? (activeCard as any).isWildRent === true
-                          : false;
-
-                        return (
-                          <button
-                            key={color}
-                            disabled={!ownsColor}
-                            onClick={() => {
-                              if (isWildRent) {
-                                setTargetModalCardId(activeRentCardId);
-                                (window as any)._cachedRentColor = color;
-                              } else {
-                                socket.emit("play_rent_card", {
-                                  roomId: gameState.roomId,
-                                  actionCardId: activeRentCardId,
-                                  chosenColor: color,
-                                });
-                              }
-                              setActiveRentCardId(null);
-                            }}
-                            className={`py-2 px-3 border rounded-xl text-[10px] font-black uppercase text-left transition-all truncate flex items-center justify-between ${
-                              ownsColor
-                                ? "bg-slate-950 border-slate-800 hover:border-emerald-500 text-slate-200 cursor-pointer active:scale-95"
-                                : "bg-slate-950/20 border-slate-900 text-slate-600 opacity-40 cursor-not-allowed"
-                            }`}
-                          >
-                            <span>{color}</span>
-                            {ownsColor && (
-                              <span className="text-[8px] bg-emerald-950 border border-emerald-900/60 text-emerald-400 px-1 rounded">
-                                Own
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-              </div>
-
-              <button
-                onClick={() => setActiveRentCardId(null)}
-                className="w-full mt-4 py-2 border border-dashed border-slate-800 hover:border-slate-700 text-[10px] font-black uppercase text-slate-400 rounded-xl transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
+        <PlayerHandDrawer
+          hand={me?.hand || []}
+          isMyTurn={isMyTurn}
+          actionsLeft={gameState.actionsLeft}
+          hasPaymentState={!!paymentState}
+          onEndTurn={handleEndTurn}
+          onPlayPassGo={handlePlayPassGo}
+          onPlayProperty={handlePlayProperty}
+          onBankMoney={handleBankMoney}
+          onSetStealCard={(cardId) => {
+            setActiveStealCardId(cardId);
+            setForcedDealMyOfferId(null);
+          }}
+          onPlayTargetedAction={(cardId, actionType) => {
+            if (actionType === "birthday") {
+              socket.emit("play_targeted_action", {
+                roomId: gameState.roomId,
+                cardId,
+              });
+            } else {
+              setTargetModalCardId(cardId);
+            }
+          }}
+        />
+        <RentSelectionModal
+          activeRentCardId={activeRentCardId}
+          me={me}
+          gameState={gameState}
+          setTargetModalCardId={setTargetModalCardId}
+          setActiveRentCardId={setActiveRentCardId}
+          socket={socket}
+        />
 
         <TargetModal
           isOpen={!!targetModalCardId}
