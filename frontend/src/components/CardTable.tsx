@@ -9,7 +9,9 @@ interface CardTableProps {
   isMyTurn: boolean;
   hasActivePayment: boolean;
   opponents: Player[];
-  children?: React.ReactNode; // For future tray layout flexibility
+  isTargetingMode?: boolean;
+  onSelectTargetCard?: (cardId: string) => void;
+  children?: React.ReactNode;
 }
 
 export const CardTable: React.FC<CardTableProps> = ({

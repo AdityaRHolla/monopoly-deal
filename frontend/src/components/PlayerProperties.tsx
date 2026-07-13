@@ -13,6 +13,8 @@ interface PlayerPropertiesProps {
     toColor: string,
   ) => void;
   isMyTurn?: boolean;
+  onSelectProperty?: (cardId: string) => void;
+  selectedOfferId?: string | null;
 }
 
 // Official Monopoly Deal Rent Scale Matrix Dictionary
@@ -35,6 +37,8 @@ export const PlayerProperties: React.FC<PlayerPropertiesProps> = ({
   onPayDebt,
   onReorganizeWildcard,
   isMyTurn = false,
+  onSelectProperty,
+  selectedOfferId,
 }) => {
   const [activeWildcardId, setActiveWildcardId] = useState<string | null>(null);
   const allGameColors = [
@@ -125,11 +129,16 @@ export const PlayerProperties: React.FC<PlayerPropertiesProps> = ({
                   const colorsAvailable = isCompleteWild
                     ? allGameColors
                     : (c as any).colorsAvailable || [];
-
+                  const isThisCardSelected = selectedOfferId === c.id;
                   return (
                     <div
                       key={`${c.id}-${idx}`}
-                      className="relative group transition-transform duration-200"
+                      onClick={() => !iOweMoney && onSelectProperty?.(c.id)}
+                      className={`relative group transition-transform duration-200 cursor-pointer rounded-xl ${
+                        isThisCardSelected
+                          ? "ring-4 ring-blue-500 ring-offset-2 ring-offset-slate-950 scale-105 z-10"
+                          : ""
+                      }`}
                     >
                       {/* 💎 CRITICAL FIX: Shrinks laid table cards instantly */}
                       <GameCardView card={c} isCompact={true} />

@@ -130,6 +130,16 @@ export const GameBoard: React.FC = () => {
     }
   };
 
+  const handleSelectMyOfferProperty = (cardId: string) => {
+    if (activeStealCardId) {
+      const card = me?.hand.find((c) => c.id === activeStealCardId);
+      if (card && (card as any).actionType === "forced_deal") {
+        setForcedDealMyOfferId(cardId);
+        console.log(`Forced Deal offer selected: ${cardId}`);
+      }
+    }
+  };
+
   const handleReorganizeWildcard = (
     cardId: string,
     fromColor: string,
@@ -189,6 +199,52 @@ export const GameBoard: React.FC = () => {
             isMyTurn={isMyTurn}
             hasActivePayment={!!paymentState}
             opponents={opponents}
+            isTargetingMode={!!activeStealCardId}
+            onSelectTargetCard={(cardId) => {
+              // 🔍 1. Identify which opponent owns this clicked property card ID
+              const targetedOpponent = opponents.find((o) =>
+                Object.values(o.propertySets).some((set) =>
+                  set.cards.some((c) => c.id === cardId),
+                ),
+              );
+
+              if (!targetedOpponent) return;
+
+              // 📡 2. Emit the correct socket action depending on which card you are playing
+              const activeCard = me?.hand.find(
+                (c) => c.id === activeStealCardId,
+              );
+              const actionType = activeCard
+                ? (activeCard as any).actionType
+                : "";
+
+              if (actionType === "sly_deal") {
+                socket.emit("play_sly_deal", {
+                  roomId: gameState.roomId,
+                  actionCardId: activeStealCardId,
+                  targetPlayerId: targetedOpponent.id,
+                  targetCardId: cardId,
+                });
+                setActiveStealCardId(null);
+              } else if (actionType === "forced_deal") {
+                if (!forcedDealMyOfferId) {
+                  socket.emit("error_message", {
+                    message:
+                      "Please select one of your own properties to trade first!",
+                  });
+                  return;
+                }
+                socket.emit("play_forced_deal", {
+                  roomId: gameState.roomId,
+                  actionCardId: activeStealCardId,
+                  targetPlayerId: targetedOpponent.id,
+                  targetCardId: cardId,
+                  myCardId: forcedDealMyOfferId,
+                });
+                setActiveStealCardId(null);
+                setForcedDealMyOfferId(null);
+              }
+            }}
           />
         </div>
 
@@ -216,6 +272,8 @@ export const GameBoard: React.FC = () => {
               onPayDebt={handlePayDebt}
               onReorganizeWildcard={handleReorganizeWildcard}
               isMyTurn={isMyTurn}
+              onSelectProperty={handleSelectMyOfferProperty}
+              selectedOfferId={forcedDealMyOfferId}
             />
           </div>
         </div>
