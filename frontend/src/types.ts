@@ -3,8 +3,8 @@ export type CardType = "money" | "property" | "wildcard" | "action" | "rent";
 export interface BaseCard {
   id: string;
   name: string;
-  type: CardType;
-  value: number; // Face value in Millions
+  type: "money" | "property" | "action" | "rent" | "wildcard";
+  value: number;
 }
 
 export interface PropertyCard extends BaseCard {
@@ -14,8 +14,16 @@ export interface PropertyCard extends BaseCard {
 
 export interface WildcardCard extends BaseCard {
   type: "wildcard";
-  colorsAvailable: string[];
+  colorsAvailable: string[]; // e.g. ["darkblue", "green"]
   currentColor: string;
+  isCompleteWild?: boolean;
+}
+
+// Ensure Rent cards track their dual-color mapping keys
+export interface RentCard extends BaseCard {
+  type: "rent";
+  colors: string[]; // e.g. ["red", "yellow"]
+  isWildRent: boolean;
 }
 
 export interface ActionCard extends BaseCard {
@@ -30,12 +38,6 @@ export interface ActionCard extends BaseCard {
     | "pass_go"
     | "house"
     | "hotel";
-}
-
-export interface RentCard extends BaseCard {
-  type: "rent";
-  colorsAvailable: string[];
-  isWildRent: boolean;
 }
 
 export type Card =
