@@ -19,25 +19,66 @@ export const RentSelectionModal: React.FC<RentSelectionModalProps> = ({
 }) => {
   if (!activeRentCardId) return null;
 
-  // FIXED: Explicitly locate the chosen card inside player's hand to read its attributes directly
+  // 🔍 Safely locate the active rent card instance in your hand drawer payload
   const activeCard = me?.hand.find((c: any) => c.id === activeRentCardId);
   if (!activeCard) return null;
 
-  const isWildRent = activeCard.isWildRent === true;
-  const rentColors = isWildRent
-    ? [
-        "darkblue",
-        "green",
-        "yellow",
-        "red",
-        "orange",
-        "pink",
-        "lightblue",
-        "brown",
-        "railroad",
-        "utility",
-      ]
-    : activeCard.colors || []; // FIXED: Restricting to native dual-color array mapping strings
+  // 🛡️ Safe fallback parser: Check boolean primitive, string flags, or if the name contains "wild"
+  const isWildRent =
+    activeCard.isWildRent === true ||
+    activeCard.isWildRent === "true" ||
+    activeCard.name?.toLowerCase().includes("wild");
+
+  // 🎨 STRICT NORMALIZATION MATRIX LOOPS
+  let rentColors: string[] = [];
+
+  if (isWildRent) {
+    rentColors = [
+      "darkblue",
+      "green",
+      "yellow",
+      "red",
+      "orange",
+      "pink",
+      "lightblue",
+      "brown",
+      "railroad",
+      "utility",
+    ];
+  } else {
+    // Read your backend card's colors array dynamically, fallback to any available attributes case
+    const rawColors: string[] =
+      activeCard.colors ||
+      activeCard.Colors ||
+      activeCard.colorsAvailable ||
+      [];
+
+    // Convert all extracted entries to strict lowercase to match your propertySets structure keys
+    rentColors = rawColors.map((c: string) => String(c).toLowerCase().trim());
+  }
+
+  // 🚨 LAST RESORT SAFETY NET: If the array is still empty due to a deck naming mismatch,
+  // we scrape the card name (e.g. "Red & Yellow Rent") to salvage the correct color values!
+  if (rentColors.length === 0 && activeCard.name) {
+    const nameLower = activeCard.name.toLowerCase();
+    const standardColors = [
+      "darkblue",
+      "green",
+      "yellow",
+      "red",
+      "orange",
+      "pink",
+      "lightblue",
+      "brown",
+      "railroad",
+      "utility",
+    ];
+    standardColors.forEach((color) => {
+      if (nameLower.includes(color)) {
+        rentColors.push(color);
+      }
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-red-950/80 backdrop-blur-sm flex items-center justify-center p-4 select-none">
@@ -46,13 +87,16 @@ export const RentSelectionModal: React.FC<RentSelectionModalProps> = ({
           💰 Select Rent Color
         </h3>
         <p className="text-[11px] text-amber-100/80 mt-1 font-medium">
-          Choose which property column to calculate rent values from:
+          Choose which property lot column to calculate rent values from:
         </p>
 
+        {/* Dynamic Color Buttons Grid */}
         <div className="grid grid-cols-2 gap-2 mt-4 max-h-40 overflow-y-auto p-1">
           {rentColors.map((color: string) => {
+            // Check if player actually owns cards in this specific property container block
             const ownsColor =
-              me?.propertySets[color] &&
+              me?.propertySets?.[color] &&
+              me.propertySets[color].cards &&
               me.propertySets[color].cards.length > 0;
 
             return (
@@ -61,9 +105,11 @@ export const RentSelectionModal: React.FC<RentSelectionModalProps> = ({
                 disabled={!ownsColor}
                 onClick={() => {
                   if (isWildRent) {
+                    // Wild Rent triggers the targeted opponent selection screen modal layout flow
                     setTargetModalCardId(activeRentCardId);
                     (window as any)._cachedRentColor = color;
                   } else {
+                    // Standard dual-color rent fires directly to your complete backend routine handlers
                     socket.emit("play_rent_card", {
                       roomId: gameState.roomId,
                       actionCardId: activeRentCardId,
@@ -87,6 +133,13 @@ export const RentSelectionModal: React.FC<RentSelectionModalProps> = ({
               </button>
             );
           })}
+
+          {/* Fallback warning if data extraction completely drops to zero */}
+          {rentColors.length === 0 && (
+            <p className="col-span-2 text-[9px] text-amber-300/60 italic p-4">
+              No matching color categories found on this card asset payload.
+            </p>
+          )}
         </div>
 
         <button
