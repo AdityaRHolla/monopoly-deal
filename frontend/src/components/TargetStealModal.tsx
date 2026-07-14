@@ -17,7 +17,7 @@ export const TargetStealModal: React.FC<TargetStealModalProps> = ({
   onClose,
   opponents,
   actionType,
-  myOfferCardId,
+//   myOfferCardId,
   onSelectTargetCard,
 }) => {
   if (!isOpen || !actionType) return null;
