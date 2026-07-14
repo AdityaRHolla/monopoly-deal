@@ -11,6 +11,7 @@ interface GameCardViewProps {
 
 // Global helper function to look up the exact rent tiers without using arrays
 function getRentSchemeText(colorKey: string): string {
+  if (!colorKey) return "";
   const cleanKey = colorKey.split("_")[0].toLowerCase();
   switch (cleanKey) {
     case "darkblue":
@@ -38,6 +39,7 @@ function getRentSchemeText(colorKey: string): string {
   }
 }
 
+// Strict mapping of Monopoly Deal group colors to Tailwind utility classes
 const colorMap: Record<string, string> = {
   darkblue: "bg-blue-800 text-white border-blue-400",
   green: "bg-emerald-800 text-white border-emerald-400",
@@ -49,6 +51,20 @@ const colorMap: Record<string, string> = {
   brown: "bg-amber-900 text-white border-amber-700",
   railroad: "bg-zinc-800 text-white border-zinc-600",
   utility: "bg-lime-600 text-white border-lime-400",
+};
+
+// Strict fallback hex mappings for native inline CSS gradient evaluations
+const hexColorMap: Record<string, string> = {
+  darkblue: "#1e40af",
+  green: "#065f46",
+  yellow: "#f59e0b",
+  red: "#dc2626",
+  orange: "#f97316",
+  pink: "#ec4899",
+  lightblue: "#38bdf8",
+  brown: "#78350f",
+  railroad: "#27272a",
+  utility: "#65a30d",
 };
 
 export const GameCardView: React.FC<GameCardViewProps> = ({
@@ -92,22 +108,12 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
     } else if (wildColors.length === 2) {
       isSplitWild = true;
       splitColors = wildColors;
+    } else {
+      // Fallback for standard wildcards based on their currently active configuration choice
+      const currentChoice = (card as any).currentColor || wildColors[0] || "";
+      backgroundStyle = colorMap[currentChoice] || backgroundStyle;
     }
   }
-
-  // 📐 SHRUNK LAYOUT DIMENSIONS FOR PORTABILITY
-  const baseClasses = `rounded-lg border flex flex-col justify-between shadow-md transition-all duration-200 select-none overflow-hidden ${
-    isCompact
-      ? "w-10 h-16 p-0.5 text-[6px]"
-      : "w-[18vw] h-[26vw] sm:w-24 sm:h-36 p-1 sm:p-1.5 text-[8px] sm:text-[9px] hover:-translate-y-2 hover:scale-105 hover:z-50 hover:shadow-xl"
-  } ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}`;
-
-  const inlineStyle =
-    isSplitWild && splitColors.length === 2
-      ? {
-          background: `linear-gradient(135deg, ${splitColors[0] === "darkblue" ? "#1e40af" : splitColors[0] === "lightblue" ? "#38bdf8" : splitColors[0]} 50%, ${splitColors[1] === "darkblue" ? "#1e40af" : splitColors[1] === "lightblue" ? "#38bdf8" : splitColors[1]} 50%)`,
-        }
-      : undefined;
 
   // Identify active target lookup color name
   const currentCardColor =
@@ -118,6 +124,21 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
         "";
 
   const rentText = getRentSchemeText(currentCardColor);
+
+  // 📐 SHRUNK LAYOUT DIMENSIONS FOR PORTABILITY
+  const baseClasses = `rounded-lg border flex flex-col justify-between shadow-md transition-all duration-200 select-none overflow-hidden ${backgroundStyle} ${
+    isCompact
+      ? "w-10 h-16 p-0.5 text-[6px]"
+      : "w-[18vw] h-[26vw] sm:w-24 sm:h-36 p-1 sm:p-1.5 text-[8px] sm:text-[9px] hover:-translate-y-2 hover:scale-105 hover:z-50 hover:shadow-xl"
+  } ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}`;
+
+  // Safe fallback calculation evaluating valid Hex values for split background rendering profiles
+  const inlineStyle =
+    isSplitWild && splitColors.length === 2
+      ? {
+          background: `linear-gradient(135deg, ${hexColorMap[splitColors[0]] || splitColors[0]} 50%, ${hexColorMap[splitColors[1]] || splitColors[1]} 50%)`,
+        }
+      : undefined;
 
   return (
     <div
