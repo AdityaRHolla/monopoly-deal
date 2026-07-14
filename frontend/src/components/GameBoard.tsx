@@ -101,6 +101,73 @@ export const GameBoard: React.FC = () => {
     }
   };
 
+  // 🚀 CRITICAL FIX: Exposed globally so TargetStealModal can invoke your targeting engine instantly
+  (window as any)._cardTableOnSelectTarget = (cardId: string) => {
+    const targetedOpponent = opponents.find((o) =>
+      Object.values(o.propertySets).some((set) =>
+        set.cards.some((c) => c.id === cardId),
+      ),
+    );
+    if (!targetedOpponent) return;
+
+    let targetColor = "";
+    for (const [color, set] of Object.entries(targetedOpponent.propertySets)) {
+      if (set.cards.some((c) => c.id === cardId)) {
+        targetColor = color;
+        break;
+      }
+    }
+
+    const activeCard = me?.hand.find((c) => c.id === activeStealCardId);
+    const actionType = activeCard ? (activeCard as any).actionType : "";
+
+    if (actionType === "deal_breaker") {
+      socket.emit("play_deal_breaker", {
+        roomId: gameState.roomId,
+        actionCardId: activeStealCardId,
+        targetPlayerId: targetedOpponent.id,
+        targetColor: targetColor,
+      });
+      setActiveStealCardId(null);
+    } else if (actionType === "sly_deal") {
+      socket.emit("play_sly_deal", {
+        roomId: gameState.roomId,
+        actionCardId: activeStealCardId,
+        targetPlayerId: targetedOpponent.id,
+        targetCardId: cardId,
+      });
+      setActiveStealCardId(null);
+    } else if (actionType === "forced_deal") {
+      if (!(window as any)._forcedDealMyOfferIdCached) {
+        socket.emit("error_message", {
+          message: "Select your offer trade card first!",
+        });
+        return;
+      }
+      socket.emit("play_forced_deal", {
+        roomId: gameState.roomId,
+        actionCardId: activeStealCardId,
+        targetPlayerId: targetedOpponent.id,
+        targetCardId: cardId,
+        myCardId: (window as any)._forcedDealMyOfferIdCached,
+      });
+      setActiveStealCardId(null);
+      setForcedDealMyOfferId(null);
+      delete (window as any)._forcedDealMyOfferIdCached;
+    }
+  };
+
+  const handleDropOnZone = (
+    e: React.DragEvent,
+    zone: "bank" | "property" | "table",
+  ) => {
+    e.preventDefault();
+    const cardId = e.dataTransfer.getData("text/plain");
+    if (cardId) {
+      handleProcessCardDrop(cardId, zone);
+    }
+  };
+
   const handleProcessCardDrop = (
     cardId: string,
     targetZone: "bank" | "property" | "table",
@@ -108,7 +175,6 @@ export const GameBoard: React.FC = () => {
     const card = me?.hand.find((c) => c.id === cardId);
     if (!card) return;
 
-    // 🚨 1. EXCESS HAND OVERFLOW DISCARD RE-ROUTING TRAP
     if (mustDiscard) {
       if (targetZone === "bank") {
         socket.emit("error_message", {
@@ -120,21 +186,17 @@ export const GameBoard: React.FC = () => {
       return;
     }
 
-    // 🚨 2. GESTURE ZONE INTERCEPTION ENGINE
-
-    // ZONE A: Dropped into the Bank Vault compartment
     if (targetZone === "bank") {
       if (card.value > 0) {
         socket.emit("play_money_card", { roomId: gameState.roomId, cardId });
       } else {
         socket.emit("error_message", {
-          message: "This card has no monetary bank value value!",
+          message: "This card has no monetary bank value!",
         });
       }
       return;
     }
 
-    // ZONE B: Dropped directly onto the explicit Property slots row
     if (targetZone === "property") {
       if (card.type === "property" || card.type === "wildcard") {
         socket.emit("play_property_card", { roomId: gameState.roomId, cardId });
@@ -147,16 +209,12 @@ export const GameBoard: React.FC = () => {
       return;
     }
 
-    // ZONE C: Dropped onto the main Table Felt map (Processes actions, properties, or rent)
     if (targetZone === "table") {
       if (card.type === "property" || card.type === "wildcard") {
-        // Safe fallback: allow laying property by dropping onto the open table too
         socket.emit("play_property_card", { roomId: gameState.roomId, cardId });
       } else if (card.type === "rent") {
-        // 🔥 CRITICAL GESTURE FIX: Intercept rent drops and open the selection prompt modal!
         const colors = (card as any).colors || [];
         const isWildRent = (card as any).isWildRent === true;
-
         if (isWildRent) {
           (window as any)._cachedRentColors = [
             "darkblue",
@@ -186,11 +244,14 @@ export const GameBoard: React.FC = () => {
           });
         } else if (actionType === "debt_collector") {
           setTargetModalCardId(card.id);
-        } else if (
-          ["sly_deal", "forced_deal", "deal_breaker"].includes(actionType)
-        ) {
+        } else if (actionType === "sly_deal" || actionType === "deal_breaker") {
           setActiveStealCardId(card.id);
           setForcedDealMyOfferId(null);
+        } else if (actionType === "forced_deal") {
+          // 🚀 FORCED DEAL WORKFLOW INTERCEPT TRIGGER
+          setActiveStealCardId(card.id);
+          setForcedDealMyOfferId(null);
+          setIsPropManagerOpen(true); // Pops open your own manager window first to selection trade offer
         } else if (actionType === "double_rent") {
           socket.emit("play_double_rent", {
             roomId: gameState.roomId,
@@ -205,16 +266,16 @@ export const GameBoard: React.FC = () => {
     e.preventDefault();
   };
 
-  const handleDropOnZone = (
-    e: React.DragEvent,
-    zone: "bank" | "property" | "table",
-  ) => {
-    e.preventDefault();
-    const cardId = e.dataTransfer.getData("text/plain");
-    if (cardId) {
-      handleProcessCardDrop(cardId, zone);
-    }
-  };
+  // const handleDropOnZone = (
+  //   e: React.DragEvent,
+  //   zone: "bank" | "property" | "table",
+  // ) => {
+  //   e.preventDefault();
+  //   const cardId = e.dataTransfer.getData("text/plain");
+  //   if (cardId) {
+  //     handleProcessCardDrop(cardId, zone);
+  //   }
+  // };
 
   const handlePayDebt = (cardId: string, source: "bank" | "property") => {
     socket.emit("pay_debt_with_card", {
@@ -269,11 +330,31 @@ export const GameBoard: React.FC = () => {
           me={me}
           isMyTurn={isMyTurn}
           onReorganizeWildcard={handleReorganizeWildcard}
+          activeStealCardId={activeStealCardId}
+          meHand={me?.hand}
+          onSelectMyOffer={(chosenOfferCardId) => {
+            setForcedDealMyOfferId(chosenOfferCardId); // Store your captured card ID
+            setIsPropManagerOpen(false); // Close your screen
+            (window as any)._forcedDealMyOfferIdCached = chosenOfferCardId;
+
+            // The TargetStealModal remains active via activeStealCardId,
+            // so it will automatically reveal itself now!
+          }}
         />
 
+        {/* Fullscreen Theft Target Interceptor Selector */}
         <TargetStealModal
-          isOpen={!!activeStealCardId}
-          onClose={() => setActiveStealCardId(null)}
+          // 🛡️ GUARD: If it's a Forced Deal, wait until myOfferCardId is chosen before revealing
+          isOpen={
+            !!activeStealCardId &&
+            ((me?.hand.find((c) => c.id === activeStealCardId) as any)
+              ?.actionType !== "forced_deal" ||
+              !!forcedDealMyOfferId)
+          }
+          onClose={() => {
+            setActiveStealCardId(null);
+            setForcedDealMyOfferId(null);
+          }}
           opponents={opponents}
           actionType={
             activeStealCardId
@@ -283,7 +364,6 @@ export const GameBoard: React.FC = () => {
           }
           myOfferCardId={forcedDealMyOfferId}
           onSelectTargetCard={(cardId) => {
-            // Extracts your custom cardTable target selectors lookup variables from Step 2
             const originalOnSelect = (window as any)._cardTableOnSelectTarget;
             if (originalOnSelect) originalOnSelect(cardId);
           }}
@@ -332,11 +412,7 @@ export const GameBoard: React.FC = () => {
               handleProcessCardDrop(cardId, "table")
             }
             onDropOnPropertySet={(cardId) => {
-              // Routes straight into your rules block logic for properties
               handleProcessCardDrop(cardId, "property");
-
-              // Note: If you ever want to expand your layout engine to drop cards
-              // directly into specific columns, you can pass targetColor to the server here!
             }}
             onSelectTargetCard={(cardId) => {
               // 🔍 1. Locate which opponent owns this clicked property tile
@@ -345,7 +421,6 @@ export const GameBoard: React.FC = () => {
                   set.cards.some((c) => c.id === cardId),
                 ),
               );
-
               if (!targetedOpponent) return;
 
               // 🔍 2. Extract which specific color group column was targeted
@@ -372,7 +447,7 @@ export const GameBoard: React.FC = () => {
                   roomId: gameState.roomId,
                   actionCardId: activeStealCardId,
                   targetPlayerId: targetedOpponent.id,
-                  targetColor: targetColor, // Pass the color group instead of a single card ID
+                  targetColor: targetColor,
                 });
                 setActiveStealCardId(null);
               } else if (actionType === "sly_deal") {
@@ -400,70 +475,6 @@ export const GameBoard: React.FC = () => {
                 setActiveStealCardId(null);
                 setForcedDealMyOfferId(null);
               }
-              (window as any)._cardTableOnSelectTarget = (id: string) => {
-                // This triggers your core engine logic for deal_breaker, sly_deal, or forced_deal seamlessly
-                const originalSelector = (cardId: string) => {
-                  const targetedOpponent = opponents.find((o) =>
-                    Object.values(o.propertySets).some((set) =>
-                      set.cards.some((c) => c.id === cardId),
-                    ),
-                  );
-                  if (!targetedOpponent) return;
-
-                  let targetColor = "";
-                  for (const [color, set] of Object.entries(
-                    targetedOpponent.propertySets,
-                  )) {
-                    if (set.cards.some((c) => c.id === cardId)) {
-                      targetColor = color;
-                      break;
-                    }
-                  }
-
-                  const activeCard = me?.hand.find(
-                    (c) => c.id === activeStealCardId,
-                  );
-                  const actionType = activeCard
-                    ? (activeCard as any).actionType
-                    : "";
-
-                  if (actionType === "deal_breaker") {
-                    socket.emit("play_deal_breaker", {
-                      roomId: gameState.roomId,
-                      actionCardId: activeStealCardId,
-                      targetPlayerId: targetedOpponent.id,
-                      targetColor: targetColor,
-                    });
-                    setActiveStealCardId(null);
-                  } else if (actionType === "sly_deal") {
-                    socket.emit("play_sly_deal", {
-                      roomId: gameState.roomId,
-                      actionCardId: activeStealCardId,
-                      targetPlayerId: targetedOpponent.id,
-                      targetCardId: cardId,
-                    });
-                    setActiveStealCardId(null);
-                  } else if (actionType === "forced_deal") {
-                    if (!forcedDealMyOfferId) {
-                      socket.emit("error_message", {
-                        message: "Select your offer trade card first!",
-                      });
-                      return;
-                    }
-                    socket.emit("play_forced_deal", {
-                      roomId: gameState.roomId,
-                      actionCardId: activeStealCardId,
-                      targetPlayerId: targetedOpponent.id,
-                      targetCardId: cardId,
-                      myCardId: forcedDealMyOfferId,
-                    });
-                    setActiveStealCardId(null);
-                    setForcedDealMyOfferId(null);
-                  }
-                };
-                originalSelector(id);
-              };
-              (window as any)._cardTableOnSelectTarget(cardId);
             }}
           />
         </div>
