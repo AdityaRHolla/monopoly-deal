@@ -6,13 +6,12 @@ interface GameCardViewProps {
   onAction?: () => void;
   actionLabel?: string;
   disabled?: boolean;
-  isCompact?: boolean; // Set to true for compact table cards
+  isCompact?: boolean;
 }
 
-// Global helper function to look up the exact rent tiers without using arrays
 function getRentSchemeText(colorKey: string): string {
   if (!colorKey) return "";
-  const cleanKey = colorKey.split("_")[0].toLowerCase();
+  const cleanKey = colorKey.toLowerCase().trim();
   switch (cleanKey) {
     case "darkblue":
       return "1:3M | 2:8M";
@@ -39,21 +38,20 @@ function getRentSchemeText(colorKey: string): string {
   }
 }
 
-// Strict mapping of Monopoly Deal group colors to Tailwind utility classes
+// Full, standalone tailwind classes mapped out perfectly so compiler includes them
 const colorMap: Record<string, string> = {
-  darkblue: "bg-blue-800 text-white border-blue-400",
-  green: "bg-emerald-800 text-white border-emerald-400",
-  yellow: "bg-amber-400 text-slate-950 border-amber-300",
-  red: "bg-rose-600 text-white border-rose-400",
-  orange: "bg-orange-500 text-white border-orange-400",
-  pink: "bg-pink-500 text-white border-pink-400",
-  lightblue: "bg-sky-400 text-slate-950 border-sky-300",
-  brown: "bg-amber-900 text-white border-amber-700",
-  railroad: "bg-zinc-800 text-white border-zinc-600",
-  utility: "bg-lime-600 text-white border-lime-400",
+  darkblue: "bg-blue-800 border-blue-400 text-white",
+  green: "bg-emerald-800 border-emerald-400 text-white",
+  yellow: "bg-amber-400 border-amber-300 text-slate-950",
+  red: "bg-rose-600 border-rose-400 text-white",
+  orange: "bg-orange-500 border-orange-400 text-white",
+  pink: "bg-pink-500 border-pink-400 text-white",
+  lightblue: "bg-sky-400 border-sky-300 text-slate-950",
+  brown: "bg-amber-900 border-amber-700 text-white",
+  railroad: "bg-zinc-800 border-zinc-600 text-white",
+  utility: "bg-lime-600 border-lime-400 text-white",
 };
 
-// Strict fallback hex mappings for native inline CSS gradient evaluations
 const hexColorMap: Record<string, string> = {
   darkblue: "#1e40af",
   green: "#065f46",
@@ -82,10 +80,12 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
   let backgroundStyle = "bg-slate-800 border-slate-600 text-slate-200";
   let isSplitWild = false;
   let splitColors: string[] = [];
+  let currentCardColor = "";
 
-  // 🎨 STYLING PARSER ROUTER
+  // 🎨 ROBUST DESIGN COLOR FALLBACK INTERPOLATOR
   if (card.type === "property" && "color" in card) {
-    backgroundStyle = colorMap[card.color] || backgroundStyle;
+    currentCardColor = (card as any).color || "";
+    backgroundStyle = colorMap[currentCardColor] || backgroundStyle;
   } else if (card.type === "money") {
     backgroundStyle =
       "bg-emerald-950 border-emerald-600 text-emerald-400 font-mono";
@@ -96,6 +96,7 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
     if (rentColors.length === 2) {
       isSplitWild = true;
       splitColors = rentColors;
+      currentCardColor = rentColors[0];
     } else {
       backgroundStyle =
         "bg-gradient-to-tr from-amber-700 to-orange-900 border-amber-600 text-amber-100";
@@ -104,35 +105,25 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
     const wildColors = (card as any).colorsAvailable || [];
     if ((card as any).isCompleteWild) {
       backgroundStyle =
-        "bg-gradient-to-r from-red-600 via-yellow-500 via-green-600 to-blue-600 border-white/30";
+        "bg-gradient-to-r from-red-600 via-yellow-500 via-green-600 to-blue-600 border-white/30 text-white";
     } else if (wildColors.length === 2) {
       isSplitWild = true;
       splitColors = wildColors;
+      currentCardColor = (card as any).currentColor || wildColors[0];
     } else {
-      // Fallback for standard wildcards based on their currently active configuration choice
-      const currentChoice = (card as any).currentColor || wildColors[0] || "";
-      backgroundStyle = colorMap[currentChoice] || backgroundStyle;
+      currentCardColor = (card as any).currentColor || wildColors[0] || "";
+      backgroundStyle = colorMap[currentCardColor] || backgroundStyle;
     }
   }
 
-  // Identify active target lookup color name
-  const currentCardColor =
-    card.type === "property"
-      ? (card as any).color
-      : (card as any).currentColor ||
-        ((card as any).colorsAvailable && (card as any).colorsAvailable[0]) ||
-        "";
-
   const rentText = getRentSchemeText(currentCardColor);
 
-  // 📐 SHRUNK LAYOUT DIMENSIONS FOR PORTABILITY
   const baseClasses = `rounded-lg border flex flex-col justify-between shadow-md transition-all duration-200 select-none overflow-hidden ${backgroundStyle} ${
     isCompact
       ? "w-10 h-16 p-0.5 text-[6px]"
       : "w-[18vw] h-[26vw] sm:w-24 sm:h-36 p-1 sm:p-1.5 text-[8px] sm:text-[9px] hover:-translate-y-2 hover:scale-105 hover:z-50 hover:shadow-xl"
   } ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}`;
 
-  // Safe fallback calculation evaluating valid Hex values for split background rendering profiles
   const inlineStyle =
     isSplitWild && splitColors.length === 2
       ? {
@@ -142,12 +133,12 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
 
   return (
     <div
-      draggable={true} // 💎 ENABLES DRAG & DROP ON ALL ASSETS GLOBALLY
+      draggable={true}
       onDragStart={handleDragStart}
       className={baseClasses}
       style={inlineStyle || undefined}
     >
-      {/* 🏷️ CARD HEADER: Category & Money Valuation */}
+      {/* CARD HEADER */}
       <div className="flex items-center justify-between w-full border-b border-white/10 pb-0.5">
         <span className="uppercase text-[5px] sm:text-[6px] font-black tracking-wider bg-black/40 px-1 rounded truncate max-w-10.5">
           {card.type === "wildcard" ? "WILD" : card.type}
@@ -159,13 +150,12 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
         )}
       </div>
 
-      {/* 📝 CARD BODY: Bold Heading Title Descriptor */}
+      {/* CARD BODY */}
       <div className="w-full text-center mt-0.5 flex-1 flex flex-col items-center justify-start min-h-0">
         <p className="font-black tracking-wide leading-tight text-white uppercase text-[7px] sm:text-[9px] drop-shadow-sm truncate w-full">
           {card.name}
         </p>
 
-        {/* 📊 REAL-TIME RENT VALUES SCHEMA GRID LINE */}
         {rentText && (
           <p className="text-[5.5px] sm:text-[6.5px] font-mono font-black text-amber-300 mt-1 uppercase bg-black/20 w-full py-0.5 rounded border border-white/5 tracking-tighter">
             {rentText}
@@ -173,7 +163,7 @@ export const GameCardView: React.FC<GameCardViewProps> = ({
         )}
       </div>
 
-      {/* ⚙️ EMBEDDED BUTTON: Hides when resting in compact slots to save space */}
+      {/* FOOTER ACTIONS */}
       {onAction && actionLabel && !isCompact ? (
         <button
           disabled={disabled}
