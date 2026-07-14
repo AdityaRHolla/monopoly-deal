@@ -10,6 +10,8 @@ import { CounterStackModal } from "./CounterStackModal";
 import { RentSelectionModal } from "./RentSelectionModal";
 import { MatchResultsModal } from "./MatchResultsModal";
 import { PlayerHandDrawer } from "./PlayerHandDrawer";
+import { PropertyManagerModal } from "./PropertyManagerModal";
+import { TargetStealModal } from "./TargetStealModal";
 
 export const GameBoard: React.FC = () => {
   const { gameState, socket } = useGame();
@@ -24,6 +26,8 @@ export const GameBoard: React.FC = () => {
   );
 
   if (!gameState || !socket) return null;
+  const [isPropManagerOpen, setIsPropManagerOpen] = useState(false);
+  (window as any)._openPropertyManager = () => setIsPropManagerOpen(true);
 
   const myId = socket.id;
   const me = gameState.players.find((p) => p.id === myId);
@@ -259,6 +263,32 @@ export const GameBoard: React.FC = () => {
           }}
         />
 
+        <PropertyManagerModal
+          isOpen={isPropManagerOpen}
+          onClose={() => setIsPropManagerOpen(false)}
+          me={me}
+          isMyTurn={isMyTurn}
+          onReorganizeWildcard={handleReorganizeWildcard}
+        />
+
+        <TargetStealModal
+          isOpen={!!activeStealCardId}
+          onClose={() => setActiveStealCardId(null)}
+          opponents={opponents}
+          actionType={
+            activeStealCardId
+              ? (me?.hand.find((c) => c.id === activeStealCardId) as any)
+                  ?.actionType || ""
+              : ""
+          }
+          myOfferCardId={forcedDealMyOfferId}
+          onSelectTargetCard={(cardId) => {
+            // Extracts your custom cardTable target selectors lookup variables from Step 2
+            const originalOnSelect = (window as any)._cardTableOnSelectTarget;
+            if (originalOnSelect) originalOnSelect(cardId);
+          }}
+        />
+
         <MatchResultsModal
           status={gameState.status}
           winnerName={gameState.players[gameState.turn]?.name}
@@ -370,6 +400,70 @@ export const GameBoard: React.FC = () => {
                 setActiveStealCardId(null);
                 setForcedDealMyOfferId(null);
               }
+              (window as any)._cardTableOnSelectTarget = (id: string) => {
+                // This triggers your core engine logic for deal_breaker, sly_deal, or forced_deal seamlessly
+                const originalSelector = (cardId: string) => {
+                  const targetedOpponent = opponents.find((o) =>
+                    Object.values(o.propertySets).some((set) =>
+                      set.cards.some((c) => c.id === cardId),
+                    ),
+                  );
+                  if (!targetedOpponent) return;
+
+                  let targetColor = "";
+                  for (const [color, set] of Object.entries(
+                    targetedOpponent.propertySets,
+                  )) {
+                    if (set.cards.some((c) => c.id === cardId)) {
+                      targetColor = color;
+                      break;
+                    }
+                  }
+
+                  const activeCard = me?.hand.find(
+                    (c) => c.id === activeStealCardId,
+                  );
+                  const actionType = activeCard
+                    ? (activeCard as any).actionType
+                    : "";
+
+                  if (actionType === "deal_breaker") {
+                    socket.emit("play_deal_breaker", {
+                      roomId: gameState.roomId,
+                      actionCardId: activeStealCardId,
+                      targetPlayerId: targetedOpponent.id,
+                      targetColor: targetColor,
+                    });
+                    setActiveStealCardId(null);
+                  } else if (actionType === "sly_deal") {
+                    socket.emit("play_sly_deal", {
+                      roomId: gameState.roomId,
+                      actionCardId: activeStealCardId,
+                      targetPlayerId: targetedOpponent.id,
+                      targetCardId: cardId,
+                    });
+                    setActiveStealCardId(null);
+                  } else if (actionType === "forced_deal") {
+                    if (!forcedDealMyOfferId) {
+                      socket.emit("error_message", {
+                        message: "Select your offer trade card first!",
+                      });
+                      return;
+                    }
+                    socket.emit("play_forced_deal", {
+                      roomId: gameState.roomId,
+                      actionCardId: activeStealCardId,
+                      targetPlayerId: targetedOpponent.id,
+                      targetCardId: cardId,
+                      myCardId: forcedDealMyOfferId,
+                    });
+                    setActiveStealCardId(null);
+                    setForcedDealMyOfferId(null);
+                  }
+                };
+                originalSelector(id);
+              };
+              (window as any)._cardTableOnSelectTarget(cardId);
             }}
           />
         </div>

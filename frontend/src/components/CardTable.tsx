@@ -4,7 +4,7 @@ import React from "react";
 import { OpponentSeat } from "./OpponentSeat";
 // import { PokerChips } from "./PokerChips";
 import type { GameRoom, Player } from "../types";
-import { PropertySetColumn } from "./PropertySetColumn";
+// import { PropertySetColumn } from "./PropertySetColumn";
 import { BankVaultTray } from "./BankVaultTray";
 import { CenterDeckField } from "./CenterDeckField";
 
@@ -44,15 +44,15 @@ export const CardTable: React.FC<CardTableProps> = ({
   me,
   iOweMoney,
   onPayDebt,
-  onReorganizeWildcard,
+  // onReorganizeWildcard,
   isTargetingMode = false,
   onSelectTargetCard,
   doubleRentActive,
-  activeBuildingCardId,
-  buildingType,
-  onBuildModifier,
+  // activeBuildingCardId,
+  // buildingType,
+  // onBuildModifier,
   onDropOnBankVault,
-  onDropOnPropertySet,
+  // onDropOnPropertySet,
   onDropOnCenterFelt,
 }) => {
   // const [activeWildcardId, setActiveWildcardId] = useState<string | null>(null);
@@ -186,26 +186,56 @@ export const CardTable: React.FC<CardTableProps> = ({
         </div>
 
         {/* Modular property sets matching drawing profile */}
-        <div className="flex gap-2 overflow-x-auto max-w-112.5 pb-1 items-end">
+        {/* Condensed Property Strips Container Dashboard to maintain desktop context without layout shrinkages */}
+        <div
+          onClick={() => (window as any)._openPropertyManager?.()}
+          className="flex gap-1.5 overflow-x-auto max-w-112.5 pb-1 items-end bg-slate-950/40 border border-white/5 hover:border-blue-500/40 transition-colors p-1.5 rounded-xl cursor-pointer"
+          title="Click to manage real estate portfolio portfolio"
+        >
           {Object.entries(me?.propertySets || {}).map(([color, set]) => {
             if (set.cards.length === 0) return null;
 
             return (
-              <PropertySetColumn
+              <div
                 key={color}
-                color={color}
-                set={set}
-                isMyTurn={isMyTurn}
-                iOweMoney={iOweMoney}
-                activeBuildingCardId={activeBuildingCardId}
-                buildingType={buildingType}
-                onPayDebt={onPayDebt}
-                onReorganizeWildcard={onReorganizeWildcard}
-                onBuildModifier={onBuildModifier}
-                onDropOnPropertySet={onDropOnPropertySet}
-              />
+                className="flex flex-col gap-0.5 bg-slate-900 border border-slate-800 p-1 rounded-md min-w-10 max-w-14 items-center"
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    color === "darkblue"
+                      ? "bg-blue-600"
+                      : color === "green"
+                        ? "bg-emerald-600"
+                        : color === "yellow"
+                          ? "bg-amber-400"
+                          : color === "red"
+                            ? "bg-red-600"
+                            : color === "orange"
+                              ? "bg-orange-500"
+                              : color === "pink"
+                                ? "bg-pink-500"
+                                : color === "lightblue"
+                                  ? "bg-sky-400"
+                                  : color === "brown"
+                                    ? "bg-amber-900"
+                                    : color === "railroad"
+                                      ? "bg-zinc-700"
+                                      : "bg-lime-500"
+                  }`}
+                />
+                <span className="text-[6px] font-black font-mono text-slate-300 uppercase tracking-tighter">
+                  {set.cards.length} {set.isComplete ? "👑" : "•"}
+                </span>
+              </div>
             );
           })}
+          {Object.values(me?.propertySets || {}).every(
+            (s) => s.cards.length === 0,
+          ) && (
+            <span className="text-[7px] font-black text-slate-500 italic uppercase px-4 py-1">
+              No property properties placed
+            </span>
+          )}
         </div>
       </div>
     </div>
